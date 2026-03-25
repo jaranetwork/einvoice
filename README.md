@@ -39,7 +39,7 @@ bench clear-cache
 3. **Configurar Customer**: sifen_tipo_documento, sifen_tipo_impuesto
 4. **Configurar Items**: Item Tax Template con sifen_tipo_iva
 
-Ver [Documentación Completa](einvoice/e_invoice/docs/00_index.md) para más detalles.
+Ver [Documentación Completa](einvoice/docs/00_index.md) para más detalles.
 
 ---
 
