@@ -1,0 +1,50 @@
+{
+  "custom_fields": [
+    {
+      "fieldname": "responsable_sifen_section",
+      "fieldtype": "Section Break",
+      "label": "Persona Responsable SIFEN",
+      "insert_after": "tipo_regimen",
+      "dt": "Company",
+      "module": "E-Invoice",
+      "collapsible": 1
+    },
+    {
+      "fieldname": "sifen_responsable_tipo_documento",
+      "fieldtype": "Select",
+      "label": "Tipo de Documento",
+      "insert_after": "responsable_sifen_section",
+      "dt": "Company",
+      "module": "E-Invoice",
+      "options": "1|C.I.\n2|Pasaporte\n3|C.I. extranjero\n4|Carnet residencial\n9|Otro"
+    },
+    {
+      "fieldname": "sifen_respons_numero_documento",
+      "fieldtype": "Data",
+      "label": "Número de Documento",
+      "insert_after": "sifen_responsable_tipo_documento",
+      "dt": "Company",
+      "module": "E-Invoice"
+    },
+    {
+      "fieldname": "sifen_responsable_nombre",
+      "fieldtype": "Data",
+      "label": "Nombre del Responsable",
+      "insert_after": "sifen_respons_numero_documento",
+      "dt": "Company",
+      "module": "E-Invoice"
+    },
+    {
+      "fieldname": "sifen_responsable_cargo",
+      "fieldtype": "Data",
+      "label": "Cargo del Responsable",
+      "insert_after": "sifen_responsable_nombre",
+      "dt": "Company",
+      "module": "E-Invoice"
+    }
+  ],
+  "doctype": "Custom Field",
+  "property_setters": [],
+  "custom_perms": [],
+  "links": []
+}

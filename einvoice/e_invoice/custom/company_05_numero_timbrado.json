@@ -1,0 +1,18 @@
+{
+  "custom_fields": [
+    {
+      "dt": "Company",
+      "fieldname": "numero_timbrado",
+      "fieldtype": "Data",
+      "label": "Número de Timbrado",
+      "insert_after": "sifen_column_1",
+      "module": "E-Invoice",
+      "length": 50,
+      "reqd": 1
+    }
+  ],
+  "doctype": "Custom Field",
+  "property_setters": [],
+  "custom_perms": [],
+  "links": []
+}

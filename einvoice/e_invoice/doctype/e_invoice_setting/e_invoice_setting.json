@@ -1,0 +1,87 @@
+{
+ "actions": [],
+ "creation": "2026-02-03 00:00:00",
+ "doctype": "DocType",
+ "document_type": "Setup",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "section_connection",
+  "enabled",
+  "api_endpoint",
+  "api_key",
+  "section_timeout",
+  "request_timeout",
+  "section_test",
+  "test_mode"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_connection",
+   "fieldtype": "Section Break",
+   "label": "Connection Settings"
+  },
+  {
+   "default": "0",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "api_endpoint",
+   "fieldtype": "Data",
+   "label": "API Endpoint"
+  },
+  {
+   "fieldname": "api_key",
+   "fieldtype": "Data",
+   "label": "API Key"
+  },
+  {
+   "fieldname": "section_timeout",
+   "fieldtype": "Section Break",
+   "label": "Request Settings"
+  },
+  {
+   "default": "30",
+   "fieldname": "request_timeout",
+   "fieldtype": "Int",
+   "label": "Request Timeout (seconds)"
+  },
+  {
+   "fieldname": "section_test",
+   "fieldtype": "Section Break",
+   "label": "Test Mode"
+  },
+  {
+   "default": "0",
+   "fieldname": "test_mode",
+   "fieldtype": "Check",
+   "label": "Test Mode"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-03-08 20:11:12.462001",
+ "modified_by": "Administrator",
+ "module": "E-Invoice",
+ "name": "E-Invoice Setting",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

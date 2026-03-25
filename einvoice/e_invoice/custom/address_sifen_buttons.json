@@ -1,0 +1,87 @@
+{
+  "doctype": "Custom Field",
+  "custom_fields": [
+    {
+      "dt": "Address",
+      "fieldname": "btn_buscar_departamento",
+      "fieldtype": "Button",
+      "label": "🔍 Buscar Departamento",
+      "insert_after": "state",
+      "module": "E-Invoice"
+    },
+    {
+      "dt": "Address",
+      "fieldname": "btn_buscar_distrito",
+      "fieldtype": "Button",
+      "label": "🔍 Buscar Distrito",
+      "insert_after": "county",
+      "module": "E-Invoice"
+    },
+    {
+      "dt": "Address",
+      "fieldname": "btn_buscar_ciudad",
+      "fieldtype": "Button",
+      "label": "🔍 Buscar Ciudad",
+      "insert_after": "city",
+      "module": "E-Invoice"
+    }
+  ],
+  "property_setters": [
+    {
+      "doctype": "Property Setter",
+      "doctype_or_field": "DocField",
+      "doc_type": "Address",
+      "field_name": "state",
+      "property": "label",
+      "value": "Estado / Departamento / Provincia",
+      "module": "E-Invoice"
+    },
+    {
+      "doctype": "Property Setter",
+      "doctype_or_field": "DocField",
+      "doc_type": "Address",
+      "field_name": "state",
+      "property": "fieldtype",
+      "value": "Data",
+      "module": "E-Invoice"
+    },
+    {
+      "doctype": "Property Setter",
+      "doctype_or_field": "DocField",
+      "doc_type": "Address",
+      "field_name": "state",
+      "property": "reqd",
+      "value": "0",
+      "module": "E-Invoice"
+    },
+    {
+      "doctype": "Property Setter",
+      "doctype_or_field": "DocField",
+      "doc_type": "Address",
+      "field_name": "county",
+      "property": "label",
+      "value": "Distrito",
+      "module": "E-Invoice"
+    },
+    {
+      "doctype": "Property Setter",
+      "doctype_or_field": "DocField",
+      "doc_type": "Address",
+      "field_name": "county",
+      "property": "hidden",
+      "value": "0",
+      "module": "E-Invoice"
+    },
+    {
+      "doctype": "Property Setter",
+      "doctype_or_field": "DocField",
+      "doc_type": "Address",
+      "field_name": "city",
+      "property": "reqd",
+      "value": "0",
+      "module": "E-Invoice"
+    }
+  ],
+  "custom_perms": [],
+  "links": []
+}

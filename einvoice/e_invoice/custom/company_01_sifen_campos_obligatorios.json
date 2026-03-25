@@ -1,0 +1,17 @@
+{
+  "custom_fields": [
+    {
+      "dt": "Company",
+      "fieldname": "sifen_campos_obligatorios_section",
+      "fieldtype": "Section Break",
+      "label": "Campos Obligatorios SIFEN",
+      "insert_after": "tax_id",
+      "module": "E-Invoice",
+      "collapsible": 1
+    }
+  ],
+  "doctype": "Custom Field",
+  "property_setters": [],
+  "custom_perms": [],
+  "links": []
+}

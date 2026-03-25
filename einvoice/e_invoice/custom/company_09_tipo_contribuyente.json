@@ -1,0 +1,18 @@
+{
+  "custom_fields": [
+    {
+      "dt": "Company",
+      "fieldname": "tipo_contribuyente",
+      "fieldtype": "Select",
+      "label": "Tipo de Contribuyente",
+      "insert_after": "sifen_column_2",
+      "module": "E-Invoice",
+      "options": "1|Persona Física\n2|Persona Jurídica",
+      "reqd": 1
+    }
+  ],
+  "doctype": "Custom Field",
+  "property_setters": [],
+  "custom_perms": [],
+  "links": []
+}

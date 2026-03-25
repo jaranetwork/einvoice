@@ -1,0 +1,17 @@
+{
+  "doctype": "Custom Field",
+  "custom_fields": [
+    {
+      "dt": "Address",
+      "fieldname": "sifen_numero_casa",
+      "fieldtype": "Data",
+      "label": "Número de Casa",
+      "insert_after": "address_line1",
+      "module": "E-Invoice",
+      "length": 50
+    }
+  ],
+  "property_setters": [],
+  "custom_perms": [],
+  "links": []
+}

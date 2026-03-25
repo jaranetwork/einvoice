@@ -1,0 +1,16 @@
+{
+  "custom_fields": [
+    {
+      "dt": "Company",
+      "fieldname": "sifen_seccion_cierre",
+      "fieldtype": "Section Break",
+      "label": "",
+      "insert_after": "actividades_economicas",
+      "module": "E-Invoice"
+    }
+  ],
+  "doctype": "Custom Field",
+  "property_setters": [],
+  "custom_perms": [],
+  "links": []
+}

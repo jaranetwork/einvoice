@@ -1,0 +1,18 @@
+{
+  "custom_fields": [
+    {
+      "dt": "Company",
+      "fieldname": "codigo_establecimiento",
+      "fieldtype": "Data",
+      "label": "Código de Establecimiento",
+      "insert_after": "sifen_campos_obligatorios_section",
+      "module": "E-Invoice",
+      "length": 3,
+      "reqd": 1
+    }
+  ],
+  "doctype": "Custom Field",
+  "property_setters": [],
+  "custom_perms": [],
+  "links": []
+}

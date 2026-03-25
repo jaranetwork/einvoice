@@ -1,0 +1,15 @@
+{
+  "custom_fields": [
+    {
+      "dt": "Company",
+      "fieldname": "sifen_column_1",
+      "fieldtype": "Column Break",
+      "insert_after": "sifen_denominacion",
+      "module": "E-Invoice"
+    }
+  ],
+  "doctype": "Custom Field",
+  "property_setters": [],
+  "custom_perms": [],
+  "links": []
+}

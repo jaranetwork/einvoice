@@ -1,0 +1,17 @@
+{
+  "custom_fields": [
+    {
+      "dt": "Company",
+      "fieldname": "fecha_timbrado",
+      "fieldtype": "Date",
+      "label": "Fecha de Timbrado",
+      "insert_after": "numero_timbrado",
+      "module": "E-Invoice",
+      "reqd": 1
+    }
+  ],
+  "doctype": "Custom Field",
+  "property_setters": [],
+  "custom_perms": [],
+  "links": []
+}

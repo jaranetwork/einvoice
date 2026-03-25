@@ -1,0 +1,18 @@
+{
+  "custom_fields": [
+    {
+      "dt": "Company",
+      "fieldname": "sifen_denominacion",
+      "fieldtype": "Data",
+      "label": "Denominación",
+      "insert_after": "codigo_punto_expedicion_default",
+      "module": "E-Invoice",
+      "length": 200,
+      "reqd": 1
+    }
+  ],
+  "doctype": "Custom Field",
+  "property_setters": [],
+  "custom_perms": [],
+  "links": []
+}

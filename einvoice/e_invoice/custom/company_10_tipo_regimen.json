@@ -1,0 +1,18 @@
+{
+  "custom_fields": [
+    {
+      "dt": "Company",
+      "fieldname": "tipo_regimen",
+      "fieldtype": "Select",
+      "label": "Tipo de Régimen",
+      "insert_after": "tipo_contribuyente",
+      "module": "E-Invoice",
+      "options": "1|Régimen de Turismo\n2|Importador\n3|Exportador\n4|Maquila\n5|Ley N° 60/90\n6|Régimen del Pequeño Productor\n7|Régimen del Mediano Productor\n8|Régimen Contable",
+      "reqd": 1
+    }
+  ],
+  "doctype": "Custom Field",
+  "property_setters": [],
+  "custom_perms": [],
+  "links": []
+}

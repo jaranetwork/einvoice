@@ -1,0 +1,18 @@
+{
+  "custom_fields": [
+    {
+      "dt": "Company",
+      "fieldname": "codigo_punto_expedicion_default",
+      "fieldtype": "Data",
+      "label": "Punto de Expedición por Defecto",
+      "insert_after": "codigo_establecimiento",
+      "module": "E-Invoice",
+      "length": 3,
+      "description": "Código de punto de expedición por defecto para facturas que no provienen de POS"
+    }
+  ],
+  "doctype": "Custom Field",
+  "property_setters": [],
+  "custom_perms": [],
+  "links": []
+}

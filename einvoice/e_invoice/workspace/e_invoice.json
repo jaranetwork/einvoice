@@ -1,0 +1,48 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"Fq7G8Kx9mZ\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">E-Invoice Configuration</span>\",\"col\":12}},{\"id\":\"Np2L5Rw3vT\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"E-Invoice Settings\",\"col\":4}}]",
+ "creation": "2026-03-08 00:00:00",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "file",
+ "idx": 25,
+ "is_hidden": 0,
+ "label": "E-Invoice",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "E-Invoice Settings",
+   "link_count": 0,
+   "link_to": "E-Invoice Setting",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-03-08 00:00:00",
+ "modified_by": "Administrator",
+ "module": "E-Invoice",
+ "name": "E-Invoice",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "category": "Modules",
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 25.0,
+ "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "List",
+   "label": "E-Invoice Settings",
+   "link_to": "E-Invoice Setting",
+   "type": "DocType"
+  }
+ ],
+ "title": "E-Invoice"
+}

@@ -1,0 +1,18 @@
+{
+  "custom_fields": [
+    {
+      "dt": "POS Profile",
+      "fieldname": "codigo_punto_expedicion",
+      "fieldtype": "Data",
+      "label": "Código Punto de Expedición",
+      "insert_after": "warehouse",
+      "module": "E-Invoice",
+      "length": 10,
+      "description": "Código de punto de expedición para este perfil POS (sobrescribe el de Company)"
+    }
+  ],
+  "doctype": "Custom Field",
+  "property_setters": [],
+  "custom_perms": [],
+  "links": []
+}

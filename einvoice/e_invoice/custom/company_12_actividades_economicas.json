@@ -1,0 +1,26 @@
+{
+  "custom_fields": [
+    {
+      "fieldname": "actividades_economicas_section",
+      "fieldtype": "Section Break",
+      "label": "Actividades Económicas SIFEN",
+      "insert_after": "sifen_responsable_cargo",
+      "dt": "Company",
+      "module": "E-Invoice",
+      "collapsible": 1
+    },
+    {
+      "fieldname": "actividades_economicas",
+      "fieldtype": "Table",
+      "label": "Actividades Económicas",
+      "insert_after": "actividades_economicas_section",
+      "dt": "Company",
+      "module": "E-Invoice",
+      "options": "E-Invoice Actividad Economica"
+    }
+  ],
+  "doctype": "Custom Field",
+  "property_setters": [],
+  "custom_perms": [],
+  "links": []
+}
