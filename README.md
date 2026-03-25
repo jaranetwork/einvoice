@@ -64,8 +64,8 @@ La documentación completa está disponible en:
 ## Proyectos
 
 Este módulo trabaja con el sistema FEPY:
-- [https://github.com/jaranetwork/fepy-backend](FEPY backend)
-- [https://github.com/jaranetwork/fepy-frontend](FEPY frontend) Interface web
+- [FEPY backend](https://github.com/jaranetwork/fepy-backend)
+- [FEPY frontend - Interface web](https://github.com/jaranetwork/fepy-frontend)
 
 ---
 
