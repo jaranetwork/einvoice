@@ -55,9 +55,17 @@ Ver [Documentación Completa](einvoice/e_invoice/docs/00_index.md) para más det
 ## Documentación
 
 La documentación completa está disponible en:
-- [docs/00_index.md](einvoice/e_invoice/docs/00_index.md) - Índice y guía completa
-- [docs/01_quick_start.md](einvoice/e_invoice/docs/01_quick_start.md) - Inicio rápido
-- [docs/09_troubleshooting.md](einvoice/e_invoice/docs/09_troubleshooting.md) - Solución de problemas
+- [docs/00_index.md](einvoice/docs/00_index.md) - Índice y guía completa
+- [docs/01_quick_start.md](einvoice/docs/01_quick_start.md) - Inicio rápido
+- [docs/09_troubleshooting.md](einvoice/docs/09_troubleshooting.md) - Solución de problemas
+
+---
+
+## Proyectos
+
+Este módulo trabaja con el sistema FEPY:
+- [https://github.com/jaranetwork/fepy-backend](FEPY backend)
+- [https://github.com/jaranetwork/fepy-frontend](FEPY frontend) Interface web
 
 ---
 
