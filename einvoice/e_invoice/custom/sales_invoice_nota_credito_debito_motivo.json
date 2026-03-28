@@ -1,0 +1,25 @@
+{
+  "doctype": "Custom Field",
+  "custom_fields": [
+    {
+      "dt": "Sales Invoice",
+      "fieldname": "sifen_motivo_nota_credito_debito",
+      "fieldtype": "Select",
+      "label": "Motivo Nota Crédito/Débito",
+      "insert_after": "is_return",
+      "module": "E-Invoice",
+      "description": "Motivo de la Nota de Crédito/Débito según SIFEN",
+      "no_copy": 0,
+      "print_hide": 0,
+      "report_hide": 0,
+      "reqd": 0,
+      "search_index": 0,
+      "translatable": 0,
+      "options": "\n1|Devolución y Ajuste de precios\n2|Devolución\n3|Descuento\n4|Bonificación\n5|Crédito incobrable\n6|Recupero de costo\n7|Recupero de gasto\n8|Ajuste de precio",
+      "depends_on": "eval:doc.is_return || doc.is_debit_note"
+    }
+  ],
+  "property_setters": [],
+  "custom_perms": [],
+  "links": []
+}

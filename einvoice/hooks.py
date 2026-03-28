@@ -130,6 +130,9 @@ doc_events = {
     "Address": {
         "validate": "einvoice.e_invoice.utils.address_validation.validate_address_sifen",
     },
+    "Customer": {
+        "before_insert": "einvoice.e_invoice.doctype.customer.customer.before_insert",
+    },
     "Sales Invoice": {
         "validate": [
             "einvoice.e_invoice.utils.api_client.asignar_numero_control",

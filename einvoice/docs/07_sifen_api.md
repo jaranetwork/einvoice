@@ -176,7 +176,8 @@ POST {BASE_URL}/api/facturar/crear
   "documentoNumero": "123456-1",
   "telefono": "+595 981 654321",
   "celular": "+595 981 654321",
-  "email": "cliente@email.com"
+  "email": "cliente@email.com",
+  "codigo": ""
 }
 ```
 
@@ -185,21 +186,38 @@ POST {BASE_URL}/api/facturar/crear
 | Campo | Tipo | Obligatorio | Descripción |
 |-------|------|-------------|-------------|
 | `contribuyente` | boolean | ✅ | true/false |
-| `tipoOperacion` | int | ✅ | 1-4 |
+| `tipoOperacion` | int | ✅ | 1=B2B, 2=B2C, 3=B2G, 4=B2F |
 | `ruc` | string | ✅ Para B2B/B2G | RUC del cliente |
 | `razonSocial` | string | ✅ | Razón social |
 | `nombreFantasia` | string | ❌ | Nombre de fantasía |
-| `direccion` | string | ✅ | Dirección |
+| `direccion` | string | ✅ | Dirección completa |
 | `numeroCasa` | string | ❌ | Número de casa |
-| `departamento` | int/null | ✅ (Paraguay) | Código depto |
-| `distrito` | int/null | ✅ (Paraguay) | Código distrito |
-| `ciudad` | int/null | ✅ (Paraguay) | Código ciudad |
-| `pais` | string | ✅ | ISO alpha-3 |
-| `documentoTipo` | int | ✅ | 1-4 |
+| `complementoDireccion1` | string | ❌ | Complemento dirección |
+| `departamento` | int/null | ✅ (Paraguay) | Código de departamento (1-17) |
+| `departamentoDescripcion` | string | ✅ (Paraguay) | Nombre del departamento |
+| `distrito` | int/null | ✅ (Paraguay) | Código de distrito |
+| `distritoDescripcion` | string | ✅ (Paraguay) | Nombre del distrito |
+| `ciudad` | int/null | ✅ (Paraguay) | Código de ciudad |
+| `ciudadDescripcion` | string | ✅ (Paraguay) | Nombre de la ciudad |
+| `pais` | string | ✅ | ISO alpha-3 (PRY para Paraguay) |
+| `paisDescripcion` | string | ✅ | Nombre del país |
+| `tipoContribuyente` | int | ✅ | 1=Company, 2=Individual |
+| `documentoTipo` | int | ✅ | 1=RUC, 2=CI, 3=Pasaporte, 4=Otros |
 | `documentoNumero` | string | ✅ | Número de documento |
-| `telefono` | string | ❌ | Teléfono |
-| `celular` | string | ❌ | Celular |
+| `telefono` | string | ❌ | Teléfono fijo |
+| `celular` | string | ❌ | Teléfono celular |
 | `email` | string | ❌ | Email |
+| `codigo` | string | ❌ | Código de cliente |
+
+### Notas sobre Ubicación (Paraguay)
+
+Para clientes en Paraguay, los campos de ubicación se obtienen del Address:
+
+- **departamento**: Código numérico del departamento (ej: 1=ASUNCION, 12=CENTRAL)
+- **distrito**: Código numérico del distrito (se obtiene del campo `county` en Address)
+- **ciudad**: Código numérico de la ciudad (se obtiene del campo `city` en Address)
+
+**Importante:** El campo `county` en Address contiene el distrito con formato `"codigo|nombre"` (ej: `"1|ASUNCION"`).
 
 ---
 
@@ -269,11 +287,10 @@ POST {BASE_URL}/api/facturar/crear
   "tipo": 1,
   "entregas": [
     {
-      "numero": 1,
-      "monto": 120000,
-      "fecha": "2026-03-25",
       "tipo": 1,
-      "cambio": 1
+      "monto": "120000",
+      "moneda": "PYG",
+      "cambio": 0
     }
   ]
 }
@@ -291,11 +308,10 @@ POST {BASE_URL}/api/facturar/crear
   },
   "entregas": [
     {
-      "numero": 1,
-      "monto": 120000,
-      "fecha": "2026-04-24",
-      "tipo": 1,
-      "cambio": 1
+      "tipo": 2,
+      "monto": "120000",
+      "moneda": "PYG",
+      "cambio": 0
     }
   ]
 }
@@ -326,7 +342,26 @@ POST {BASE_URL}/api/facturar/crear
       }
     ]
   },
-  "entregas": [ ... ]
+  "entregas": [
+    {
+      "tipo": 2,
+      "monto": "40000",
+      "moneda": "PYG",
+      "cambio": 0
+    },
+    {
+      "tipo": 2,
+      "monto": "40000",
+      "moneda": "PYG",
+      "cambio": 0
+    },
+    {
+      "tipo": 2,
+      "monto": "40000",
+      "moneda": "PYG",
+      "cambio": 0
+    }
+  ]
 }
 ```
 
@@ -339,6 +374,19 @@ POST {BASE_URL}/api/facturar/crear
 | `credito.plazo` | string | ✅ Si credito.tipo=1 | Días (2-15 caracteres) |
 | `credito.cuotas` | array | ✅ Si credito.tipo=2 | Array de cuotas |
 | `entregas` | array | ✅ | Entregas de pago |
+
+### Campos de Entregas
+
+Cada entrega en el array `entregas` debe tener exactamente estos 4 campos:
+
+| Campo | Tipo | Obligatorio | Descripción | Ejemplo |
+|-------|------|-------------|-------------|---------|
+| `tipo` | int | ✅ | Tipo de pago: 1=Contado, 2=Crédito, 5=Anticipo | `1` |
+| `monto` | string | ✅ | Monto de la entrega | `"120000"` |
+| `moneda` | string | ✅ | Código de moneda ISO | `"PYG"` |
+| `cambio` | int | ✅ | Tipo de cambio (0 si PYG) | `0` |
+
+**Nota:** Los campos `numero` y `fecha` **no se incluyen** en las entregas según el estándar SIFEN.
 
 ---
 
@@ -411,4 +459,4 @@ POST {BASE_URL}/api/facturar/crear
 
 ---
 
-**Última actualización:** 2026-03-25
+**Última actualización:** 2026-03-28

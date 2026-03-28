@@ -1,6 +1,23 @@
 // Combined script for Sales Invoice - includes both custom buttons and E-Invoice Records tab
 frappe.ui.form.on('Sales Invoice', {
     refresh(frm) {
+        // Show/hide SIFEN motivo field based on is_return or is_debit_note
+        frm.toggle_display('sifen_motivo_nota_credito_debito',
+            frm.doc.is_return || frm.doc.is_debit_note);
+
+        // Show/hide CDC field based on is_return or is_debit_note
+        frm.toggle_display('sifen_cdc_factura_original',
+            frm.doc.is_return || frm.doc.is_debit_note);
+
+        // Make fields required if is_return or is_debit_note
+        if (frm.doc.is_return || frm.doc.is_debit_note) {
+            frm.set_df_property('sifen_motivo_nota_credito_debito', 'reqd', 1);
+            frm.set_df_property('sifen_cdc_factura_original', 'reqd', 1);
+        } else {
+            frm.set_df_property('sifen_motivo_nota_credito_debito', 'reqd', 0);
+            frm.set_df_property('sifen_cdc_factura_original', 'reqd', 0);
+        }
+
         // Add a button to generate e-invoice manually
         if (!frm.doc.__islocal && frm.doc.docstatus === 1) {  // Only for saved and submitted invoices
             frm.add_custom_button(__('Generate E-Invoice'), () => {
@@ -142,75 +159,8 @@ frappe.ui.form.on('Sales Invoice', {
                 });
             }, __('E-Invoice'));
         }
-
-        // Create a new tab for E-Invoice Records
-        create_einvoice_records_tab(frm);
     }
 });
-
-function create_einvoice_records_tab(frm) {
-    // Remove any previously added tab to avoid duplication
-    if (frm.einvoice_tab) {
-        frm.einvoice_tab.remove();
-        frm.einvoice_tab = null;
-    }
-    
-    // Create a new tab for E-Invoice Records
-    frm.einvoice_tab = frm.add_tab(__('E-Invoice Records'));
-    
-    // Query for E-Invoice Records related to this Sales Invoice
-    frappe.db.get_list("E-Invoice Record", {
-        filters: {
-            sales_invoice: frm.doc.name
-        },
-        fields: ["name", "status", "generated_date", "einvoice_document"]
-    }).then(records => {
-        if (records.length > 0) {
-            // Create HTML content for the records
-            let html = `
-                <div class="einvoice-records-container" style="padding: 15px;">
-                    <h4>Related E-Invoice Records</h4>
-                    <div class="einvoice-records-list">`;
-            
-            records.forEach(record => {
-                html += `
-                    <div class="record-item" style="margin-bottom: 10px; padding: 10px; border: 1px solid #eee; border-radius: 4px; background-color: #f8f9fa;">
-                        <div><strong>Name:</strong> <a href="/app/e-invoice-record/${record.name}" target="_blank">${record.name}</a></div>
-                        <div><strong>Status:</strong> ${record.status}</div>
-                        <div><strong>Date:</strong> ${moment(record.generated_date).format('YYYY-MM-DD HH:mm:ss') || 'N/A'}</div>
-                        ${record.einvoice_document ? `<div><strong>Document:</strong> <a href="${record.einvoice_document}" target="_blank">View Document</a></div>` : ''}
-                    </div>
-                `;
-            });
-            
-            html += `</div></div>`;
-            
-            // Add the HTML to the tab
-            frm.einvoice_tab.html(html);
-        } else {
-            // If no records found, add a message
-            let html = `
-                <div class="einvoice-records-container" style="padding: 15px;">
-                    <h4>Related E-Invoice Records</h4>
-                    <p>No E-Invoice Records found for this Sales Invoice.</p>
-                </div>`;
-            
-            // Add the HTML to the tab
-            frm.einvoice_tab.html(html);
-        }
-    }).catch(error => {
-        console.error("Error fetching E-Invoice Records:", error);
-
-        // Show error message in the tab
-        const errorHtml = `
-            <div class="einvoice-records-container" style="padding: 15px;">
-                <h4>Related E-Invoice Records</h4>
-                <p>Error loading E-Invoice Records.</p>
-            </div>`;
-
-        frm.einvoice_tab.html(errorHtml);
-    });
-}
 
 function download_einvoice_file(frm, type) {
     /**
@@ -218,14 +168,14 @@ function download_einvoice_file(frm, type) {
      * @param {Object} frm - Frappe form object (Sales Invoice)
      * @param {string} type - 'xml' or 'kude'
      */
-    
+
     const factura_id = frm.doc.custom_sifen_factura_id;
     const invoice_name = frm.doc.name;
-    
+
     console.log('[Download] factura_id:', factura_id);
     console.log('[Download] invoice_name:', invoice_name);
     console.log('[Download] type:', type);
-    
+
     if (!factura_id) {
         frappe.msgprint({
             title: __('Error'),
@@ -260,7 +210,7 @@ function download_einvoice_file(frm, type) {
                 }
                 const byteArray = new Uint8Array(byteNumbers);
                 const blob = new Blob([byteArray], { type: r.message.content_type });
-                
+
                 // Create download link
                 const url = window.URL.createObjectURL(blob);
                 const link = document.createElement('a');

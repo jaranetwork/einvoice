@@ -39,9 +39,20 @@ einvoice/
 │   │       ├── __init__.py
 │   │       └── e_invoice_actividad_economica.json
 │   ├── utils/
-│   │   ├── __init__.py
+│   │   ├── __init__.py               # Exporta todas las funciones públicas
 │   │   ├── address_validation.py     # Validación de Address
-│   │   └── api_client.py             # Lógica principal SIFEN
+│   │   ├── api_client.py             # Lógica principal SIFEN y API
+│   │   └── utils.py                  # Funciones auxiliares
+│   ├── builders/                     # Constructores de payload SIFEN
+│   │   ├── __init__.py
+│   │   ├── data_builder.py           # Construye sección DATA
+│   │   ├── param_builder.py          # Construye sección PARAM
+│   │   ├── cliente_builder.py        # Construye sección cliente
+│   │   ├── items_builder.py          # Construye sección items
+│   │   └── condicion_builder.py      # Construye sección condición
+│   ├── validators/                   # Validadores SIFEN
+│   │   ├── __init__.py
+│   │   └── payment_validator.py      # Valida términos de pago
 │   ├── doc_events/
 │   │   ├── __init__.py
 │   │   └── sales_invoice.py          # Eventos de Sales Invoice
@@ -125,6 +136,9 @@ doctype_python = {
 | `send_invoice_to_external_api(sales_invoice)` | Envía factura a API SIFEN | dict {success, message, data} |
 | `get_invoice_status(factura_id)` | Consulta estado en SIFEN | dict {success, data} |
 | `download_sifen_file(factura_id, file_type, invoice_name)` | Descarga XML/KUDE | dict {file_content, filename, content_type} |
+| `download_xml(factura_id, invoice_name)` | Descarga XML (wrapper) | dict {file_content, filename, content_type} |
+| `download_pdf(factura_id, invoice_name)` | Descarga KUDE PDF (wrapper) | dict {file_content, filename, content_type} |
+| `test_api_connection()` | Prueba conexión con API SIFEN | dict {success, message} |
 
 #### Funciones de Construcción de Payload
 
@@ -133,20 +147,49 @@ doctype_python = {
 | `prepare_invoice_data(sales_invoice)` | Construye payload completo | dict {param, data} |
 | `build_param_section(company)` | Construye sección param | dict |
 | `build_data_section(...)` | Construye sección data | dict |
-| `prepare_items_data(sales_invoice)` | Construye array de items | list |
-| `get_condicion_entregas(...)` | Construye condición de pago | dict |
+| `build_cliente_section(...)` | Construye sección cliente | dict |
+| `build_items_data(sales_invoice, moneda)` | Construye array de items | list |
+| `build_condicion_section(...)` | Construye sección condición | dict |
 
-#### Funciones Auxiliares
+### utils.py - Funciones Auxiliares
 
 | Función | Descripción | Retorna |
 |---------|-------------|---------|
-| `get_sifen_tipo_impuesto(sales_invoice)` | Obtiene tipo de impuesto | tuple (tipo, rate) |
-| `get_sifen_tipo_iva_item(item_code, ...)` | Obtiene tipo de IVA del item | tuple (tipo, rate) |
-| `get_tipo_transaccion(sales_invoice)` | Determina tipo de transacción | int (1-11) |
+| `get_paraguay_location_codes(state, county, city, country)` | Obtiene códigos de ubicación PY | dict {departamento, distrito, ciudad, ...} |
+| `get_country_codes(customer_country)` | Obtiene código de país | tuple (codigo, nombre) |
+| `get_company_address(company)` | Obtiene dirección de empresa | dict |
+| `get_usuario_from_invoice(sales_invoice)` | Obtiene usuario de factura | dict |
+| `get_actividades_economicas(company)` | Obtiene actividades económicas | list |
+| `get_timbrado_info(company)` | Obtiene info de timbrado | tuple |
+| `get_tipo_contribuyente(company)` | Obtiene tipo de contribuyente | int |
+| `get_tipo_regimen(company)` | Obtiene tipo de régimen | int |
 | `get_condicion_operacion(sales_invoice)` | Determina contado/crédito | int (1-2) |
+| `get_condicion_entregas(...)` | Construye entregas de pago | list |
+| `get_credito_info(sales_invoice)` | Obtiene info de crédito | dict |
 | `get_indicador_presencia(sales_invoice)` | Determina presencia indicator | int (1-4) |
+| `get_tipo_transaccion(sales_invoice)` | Determina tipo de transacción | int (1-13) |
+| `get_condicion_anticipo(sales_invoice)` | Determina condición de anticipo | int (1-2) |
+| `get_sifen_tipo_impuesto(sales_invoice)` | Obtiene tipo de impuesto | tuple (tipo, rate) |
 | `get_sifen_unidad_medida(stock_uom)` | Mapea UOM a código SIFEN | int |
 | `generar_numero_control(company)` | Genera código único de 9 dígitos | string |
+| `clean_html(html_string)` | Limpia HTML | string |
+| `download_pdf_file(factura_id)` | Descarga PDF (legacy) | dict |
+| `download_xml_file(factura_id)` | Descarga XML (legacy) | dict |
+
+### address_validation.py
+
+| Función | Descripción | Retorna |
+|---------|-------------|---------|
+| `validate_address_sifen(doc, method)` | Valida campos SIFEN en Address | None |
+
+### builders/data_builder.py
+
+| Función | Descripción | Retorna |
+|---------|-------------|---------|
+| `build_data_section(...)` | Construye sección DATA completa | dict |
+| `prepare_invoice_data(sales_invoice)` | Prepara payload completo | dict {param, data} |
+| `_build_documento_asociado(sales_invoice, tipo_documento)` | Construye documento asociado (NC/ND) | list |
+| `_build_nota_credito_debito(sales_invoice, tipo_documento)` | Construye sección NC/ND | dict |
 
 ---
 
@@ -358,4 +401,4 @@ ADD UNIQUE INDEX `idx_custom_numero_control` (`custom_numero_control`);
 
 ---
 
-**Última actualización:** 2026-03-25
+**Última actualización:** 2026-03-28

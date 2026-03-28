@@ -52,7 +52,18 @@ einvoice/
 │   ├── doctype/                     # DocTypes personalizados
 │   │   └── e_invoice_actividad_economica/
 │   ├── utils/
-│   │   └── api_client.py            # Lógica principal de SIFEN
+│   │   ├── __init__.py              # Exporta funciones públicas
+│   │   ├── address_validation.py    # Validación de Address
+│   │   ├── api_client.py            # API SIFEN y validaciones
+│   │   └── utils.py                 # Funciones auxiliares
+│   ├── builders/                    # Constructores de payload
+│   │   ├── data_builder.py          # Sección DATA
+│   │   ├── param_builder.py         # Sección PARAM
+│   │   ├── cliente_builder.py       # Sección cliente
+│   │   ├── items_builder.py         # Sección items
+│   │   └── condicion_builder.py     # Sección condición
+│   ├── validators/                  # Validadores SIFEN
+│   │   └── payment_validator.py     # Payment terms
 │   ├── doc_events/
 │   │   └── sales_invoice.py         # Eventos de Sales Invoice
 │   ├── public/
@@ -111,6 +122,6 @@ einvoice/
 
 Para reportar errores o solicitar funcionalidades adicionales, por favor contactar al equipo de desarrollo.
 
-**Última actualización:** 2026-03-25
+**Última actualización:** 2026-03-28
 **Versión del módulo:** 1.0.0
 **ERPNext compatible:** v15

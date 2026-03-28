@@ -1,6 +1,6 @@
 import frappe
 from frappe import _
-from einvoice.e_invoice.utils.api_client import (
+from einvoice.e_invoice.utils import (
     send_invoice_to_external_api,
     get_invoice_status,
     download_xml,
@@ -174,12 +174,13 @@ def validate_invoice_for_einvoice(sales_invoice):
     customer_tax_id = ""
     customer_type = ""
     customer_contribuyente = False
+    customer_codigo = ""
 
     if sales_invoice.customer:
         customer = frappe.db.get_value(
             "Customer",
             sales_invoice.customer,
-            ["customer_type", "customer_group", "tax_id", "sifen_contribuyente"],
+            ["customer_type", "customer_group", "tax_id", "sifen_contribuyente", "sifen_codigo_cliente"],
             as_dict=True
         )
         if customer:
@@ -187,6 +188,7 @@ def validate_invoice_for_einvoice(sales_invoice):
             customer_group = customer.customer_group or ""
             customer_tax_id = customer.tax_id or ""
             customer_contribuyente = bool(customer.sifen_contribuyente) if customer.sifen_contribuyente else False
+            customer_codigo = customer.sifen_codigo_cliente or ""
 
         # Get country from customer's address
         if sales_invoice.customer_address:
@@ -211,6 +213,20 @@ def validate_invoice_for_einvoice(sales_invoice):
                         customer_country
                     )
                 )
+
+    # VALIDACIÓN: Customer must have sifen_codigo_cliente
+    if not customer_codigo:
+        errors.append(
+            _("Customer {0} does not have SIFEN Customer Code (sifen_codigo_cliente).<br><br>"
+              "The customer code is required by SIFEN to identify the customer uniquely.<br><br>"
+              "To fix this:<br>"
+              "1. Go to Customer {0}<br>"
+              "2. The code should be auto-generated (format: CUST-YYYY-#####)<br>"
+              "3. If not generated, run the following command:<br>"
+              "&nbsp;&nbsp;&nbsp;&nbsp;bench --site [site-name] execute einvoice.e_invoice.doctype.customer.customer.update_existing_customers").format(
+                sales_invoice.customer
+            )
+        )
     
     # Determine tipoOperacion for validation
     tipo_operacion = None
@@ -400,6 +416,39 @@ def validate_invoice_for_einvoice(sales_invoice):
                 errors.append(_("Rate is required for item #{0} ({1})").format(idx + 1, item.item_code or "Unknown"))
             if not item.qty:
                 errors.append(_("Quantity is required for item #{0} ({1})").format(idx + 1, item.item_code or "Unknown"))
+
+    # Validate CDC for Credit/Debit Notes
+    if hasattr(sales_invoice, 'is_return') and sales_invoice.is_return:
+        if not hasattr(sales_invoice, 'return_against') or not sales_invoice.return_against:
+            errors.append(_("Credit/Debit Note must reference an original invoice in 'Return Against' field"))
+        else:
+            try:
+                original_invoice = frappe.get_doc("Sales Invoice", sales_invoice.return_against)
+                if not original_invoice.custom_sifen_cdc:
+                    errors.append(
+                        _("Original invoice {0} does not have a CDC (Código de Control).<br><br>"
+                          "The referenced invoice must have a valid CDC from SIFEN before creating a Credit/Debit Note.").format(
+                            sales_invoice.return_against
+                        )
+                    )
+            except Exception:
+                errors.append(_("Could not find original invoice {0}").format(sales_invoice.return_against))
+
+    if hasattr(sales_invoice, 'is_debit_note') and sales_invoice.is_debit_note:
+        if not hasattr(sales_invoice, 'return_against') or not sales_invoice.return_against:
+            errors.append(_("Debit Note must reference an original invoice in 'Return Against' field"))
+        else:
+            try:
+                original_invoice = frappe.get_doc("Sales Invoice", sales_invoice.return_against)
+                if not original_invoice.custom_sifen_cdc:
+                    errors.append(
+                        _("Original invoice {0} does not have a CDC (Código de Control).<br><br>"
+                          "The referenced invoice must have a valid CDC from SIFEN before creating a Debit Note.").format(
+                            sales_invoice.return_against
+                        )
+                    )
+            except Exception:
+                errors.append(_("Could not find original invoice {0}").format(sales_invoice.return_against))
 
     # Raise all errors at once
     if errors:

@@ -128,6 +128,16 @@ doc_events = {
 
 ---
 
+### 8. Notas de Crédito y Débito (NC/ND)
+
+| Validación | Descripción | Error si falla |
+|-----------|-------------|----------------|
+| return_against | Obligatorio para NC/ND | "Credit/Debit Note must reference an original invoice in 'Return Against' field" |
+| CDC en factura original | La factura referenciada debe tener CDC | "Original invoice {0} does not have a CDC (Código de Control). The referenced invoice must have a valid CDC from SIFEN before creating a Credit/Debit Note." |
+| sifen_motivo_nota_credito_debito | Obligatorio para NC/ND | "El motivo de la Nota de Crédito/Débito es obligatorio" |
+
+---
+
 ## Validaciones por Tipo de Operación
 
 ### B2B (tipoOperacion = 1)
@@ -303,4 +313,4 @@ validar_campos_sifen(doc)
 
 ---
 
-**Última actualización:** 2026-03-25
+**Última actualización:** 2026-03-28
