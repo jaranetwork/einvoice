@@ -277,19 +277,39 @@ def prepare_invoice_data(sales_invoice):
 def _parse_invoice_number(sales_invoice):
     """Parse invoice number to extract establishment, point and number."""
     invoice_name = sales_invoice.name
-    last_hyphen_idx = invoice_name.rfind('-')
     
-    if last_hyphen_idx != -1 and last_hyphen_idx < len(invoice_name) - 1:
-        numero = invoice_name[last_hyphen_idx + 1:]
-        if len(numero) > 8:
-            numero = numero[-8:]
-        
-        remaining = invoice_name[:last_hyphen_idx]
-        parts = remaining.split('-')
-        
-        if len(parts) >= 2:
-            est = parts[-2].zfill(3)[-3:] if parts[-2].isdigit() else "001"
-            punto = parts[-1].zfill(3)[-3:] if parts[-1].isdigit() else "001"
+    # Get Company data first (used for all invoice types)
+    company = None
+    if hasattr(sales_invoice, 'company') and sales_invoice.company:
+        try:
+            company = frappe.get_doc("Company", sales_invoice.company)
+        except Exception:
+            pass
+    
+    # For POS invoices, get expedition point code from POS Profile
+    if hasattr(sales_invoice, 'is_pos') and sales_invoice.is_pos:
+        if hasattr(sales_invoice, 'pos_profile') and sales_invoice.pos_profile:
+            try:
+                pos_profile = frappe.get_doc("POS Profile", sales_invoice.pos_profile)
+                if hasattr(pos_profile, 'codigo_punto_expedicion') and pos_profile.codigo_punto_expedicion:
+                    punto = pos_profile.codigo_punto_expedicion.zfill(3)[-3:]
+                    # Get establishment code from Company
+                    est = "001"
+                    if company and hasattr(company, 'codigo_establecimiento') and company.codigo_establecimiento:
+                        est = company.codigo_establecimiento.zfill(3)[-3:]
+                    numero = invoice_name.rsplit('-', 1)[-1]
+                    return est, punto, numero
+            except Exception:
+                pass
+    
+    # For non-POS invoices, get expedition point from Company default
+    if company:
+        if hasattr(company, 'codigo_punto_expedicion_default') and company.codigo_punto_expedicion_default:
+            punto = company.codigo_punto_expedicion_default.zfill(3)[-3:]
+            # Get establishment code from Company
+            est = "001"
+            if hasattr(company, 'codigo_establecimiento') and company.codigo_establecimiento:
+                est = company.codigo_establecimiento.zfill(3)[-3:]
+            numero = invoice_name.rsplit('-', 1)[-1]
             return est, punto, numero
     
-    return "001", "001", invoice_name[-8:] if len(invoice_name) > 8 else invoice_name

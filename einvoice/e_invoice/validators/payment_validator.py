@@ -69,7 +69,7 @@ def _validate_pos_payments(doc):
         has_payment_terms = True
 
     if not has_pos_payments and not has_payment_terms:
-        errors.append(_("POS Invoice has no payment methods configured.<br><br>"
+        errors.append(_("La factura del punto de venta no tiene métodos de pago configurados.<br><br>"
                        "Please add at least one payment method in the Payments table with amount > 0."))
 
     return errors
@@ -106,10 +106,10 @@ def _validate_normal_payments(doc):
 
     if not has_payment_terms and not has_advances and not has_payment_terms_template:
         if hasattr(doc, 'grand_total') and doc.grand_total and doc.grand_total > 0:
-            errors.append(_("Invoice has no Payment Terms or Advances configured.<br><br>"
-                          "Please add at least one of the following:<br>"
-                          "1. Payment Terms Template<br>"
-                          "2. Payment Schedule entries<br>"
+            errors.append(_("La factura no tiene configuradas condiciones de pago ni anticipos.<br><br>"
+                          "Por favor, añada al menos uno de los siguientes elementos:<br>"
+                          "1. Plantilla de condiciones de pago<br>"
+                          "2. Entradas del Calendario de Pago<br>"
                           "3. Advances"))
 
     return errors
@@ -145,6 +145,6 @@ def _validate_credit_days(doc, customer_country):
             break
     
     if not has_valid_plazo:
-        errors.append(_("Credit operation has no payment terms with days configured"))
+        errors.append(_("La operación de crédito no tiene plazos de pago con días configurados"))
     
     return errors

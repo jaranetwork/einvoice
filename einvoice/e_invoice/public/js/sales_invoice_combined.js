@@ -19,7 +19,7 @@ frappe.ui.form.on('Sales Invoice', {
         }
 
         // Add a button to generate e-invoice manually
-        if (!frm.doc.__islocal && frm.doc.docstatus === 1) {  // Only for saved and submitted invoices
+        if (!frm.doc.__islocal && frm.doc.docstatus === 1) {
             frm.add_custom_button(__('Generate E-Invoice'), () => {
                 frappe.call({
                     method: 'einvoice.e_invoice.doc_events.sales_invoice.trigger_einvoice_generation',
@@ -137,56 +137,43 @@ frappe.ui.form.on('Sales Invoice', {
                             if (r.message.document_url) {
                                 msg.push(`<a href="${r.message.document_url}" target="_blank">View Document</a>`);
                             }
-                            if (r.message.factura_id) {
-                                msg.push(`<br/><strong>Factura ID:</strong> ${r.message.factura_id}`);
-                            }
-                            if (r.message.estado) {
-                                msg.push(`<strong>Estado:</strong> ${r.message.estado}`);
-                            }
-                            if (r.message.cdc) {
-                                msg.push(`<strong>CDC:</strong> ${r.message.cdc}`);
-                            }
-                            if (r.message.xml_link) {
-                                msg.push(`<br/><a href="${r.message.xml_link}" target="_blank">Download XML</a>`);
-                            }
-                            if (r.message.kude_link) {
-                                msg.push(`<a href="${r.message.kude_link}" target="_blank" style="margin-left: 10px;">Download KUDE</a>`);
-                            }
-
-                            frappe.msgprint(msg.join('<br>'), 'E-Invoice Local Status');
+                            frappe.msgprint(msg.join('<br>'));
                         }
                     }
                 });
             }, __('E-Invoice'));
         }
+    },
+
+    is_pos(frm) {
+        // When "Include Payment (POS)" is checked, uncheck "Include Payment After Validate"
+        if (frm.doc.is_pos) {
+            frm.set_value('incluir_pago_despues_validar', 0);
+        }
+    },
+
+    incluir_pago_despues_validar(frm) {
+        // When "Include Payment After Validate" is checked, uncheck "Include Payment (POS)"
+        if (frm.doc.incluir_pago_despues_validar) {
+            frm.set_value('is_pos', 0);
+        }
     }
 });
 
+/**
+ * Download XML or KUDE file from SIFEN API
+ * @param {Object} frm - Form object
+ * @param {string} type - 'xml' or 'kude'
+ */
 function download_einvoice_file(frm, type) {
-    /**
-     * Download XML or KUDE file from SIFEN API
-     * @param {Object} frm - Frappe form object (Sales Invoice)
-     * @param {string} type - 'xml' or 'kude'
-     */
+    if (!frm.doc.custom_sifen_factura_id) {
+        frappe.msgprint(__('Factura ID no encontrado. Por favor, genere el E-Invoice primero.'));
+        return;
+    }
 
     const factura_id = frm.doc.custom_sifen_factura_id;
     const invoice_name = frm.doc.name;
 
-    console.log('[Download] factura_id:', factura_id);
-    console.log('[Download] invoice_name:', invoice_name);
-    console.log('[Download] type:', type);
-
-    if (!factura_id) {
-        frappe.msgprint({
-            title: __('Error'),
-            indicator: 'red',
-            message: __('Factura ID not found.<br><br>' +
-                      'Please make sure the invoice has been sent to SIFEN.')
-        });
-        return;
-    }
-
-    // Show loading message
     frappe.show_alert({
         message: __('Downloading {0}...', [type.toUpperCase()]),
         indicator: 'blue'
@@ -228,11 +215,9 @@ function download_einvoice_file(frm, type) {
             }
         },
         error: function(err) {
-            console.error('[Download Error]', err);
-            frappe.msgprint({
-                title: __('Download Error'),
-                indicator: 'red',
-                message: __('Failed to download {0}: {1}', [type.toUpperCase(), err.message])
+            frappe.show_alert({
+                message: __('Error downloading {0}: {1}', [type.toUpperCase(), err.message]),
+                indicator: 'red'
             });
         }
     });

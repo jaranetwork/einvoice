@@ -149,7 +149,7 @@ def validate_invoice_for_einvoice(sales_invoice):
     """
     Validate that all required fields are present before sending to SIFEN API.
     Validates according to tipoOperacion (1=B2B, 2=B2C, 3=B2G, 4=B2F).
-    
+
     Required fields vary by operation type:
     - B2B (1): Full validation (RUC, address, departamento, distrito, ciudad)
     - B2C (2): Light validation (no RUC required, address optional)
@@ -157,6 +157,15 @@ def validate_invoice_for_einvoice(sales_invoice):
     - B2F (4): Foreign customer (country != PRY, no departamento/distrito/ciudad required)
     """
     errors = []
+
+    # Validate: Only one of "Include Payment (POS)" or "Include Payment After Validate" can be checked
+    if hasattr(sales_invoice, 'is_pos') and hasattr(sales_invoice, 'incluir_pago_despues_validar'):
+        if sales_invoice.is_pos and sales_invoice.incluir_pago_despues_validar:
+            errors.append(
+                _("Only one of the following options can be selected:<br>"
+                  "<strong>Include Payment (POS)</strong> or <strong>Include Payment After Validate</strong><br><br>"
+                  "Please uncheck one of them.")
+            )
 
     # Validate Company Tax ID
     company = frappe.get_doc("Company", sales_invoice.company)
@@ -449,6 +458,59 @@ def validate_invoice_for_einvoice(sales_invoice):
                     )
             except Exception:
                 errors.append(_("Could not find original invoice {0}").format(sales_invoice.return_against))
+
+    # Validate Payments (only during on_submit/Validar, not during Save)
+    # Block E-Invoice generation if "Include Payment After Validate" is checked AND no payments exist
+    # docstatus: 0=Borrador, 1=Validado, 2=Cancelado
+    if hasattr(sales_invoice, 'docstatus') and sales_invoice.docstatus == 1:
+        # Check if "Include Payment After Validate" is checked
+        if hasattr(sales_invoice, 'incluir_pago_despues_validar') and sales_invoice.incluir_pago_despues_validar:
+            # Check if there are any Payment Entries linked to this invoice
+            has_payments = False
+            
+            # Check in Payment Entry Reference table
+            payment_entries = frappe.get_all(
+                "Payment Entry Reference",
+                filters={
+                    "reference_doctype": "Sales Invoice",
+                    "reference_name": sales_invoice.name
+                },
+                fields=["parent", "allocated_amount"]
+            )
+            
+            if payment_entries:
+                # Check if any payment entry has allocated amount > 0
+                for pe_ref in payment_entries:
+                    if pe_ref.allocated_amount and pe_ref.allocated_amount > 0:
+                        has_payments = True
+                        break
+            
+            # Also check in Sales Invoice payments table (for POS)
+            if not has_payments and hasattr(sales_invoice, 'payments') and sales_invoice.payments:
+                for payment in sales_invoice.payments:
+                    if payment.amount and payment.amount > 0:
+                        has_payments = True
+                        break
+            
+            # Block E-Invoice generation if no payments found
+            if not has_payments:
+                frappe.throw(
+                    _("Agrega un pago en Entrada de Pago para enviar a FEPY."),
+                    title=_("Se requiere el pago antes de la emisión de la factura electrónica contado.")
+                )
+
+        # Validate payment fields for normal invoices
+        from einvoice.e_invoice.validators.payment_validator import validate_payment_sifen_fields
+
+        # Determine if POS invoice
+        is_pos = hasattr(sales_invoice, 'is_pos') and sales_invoice.is_pos
+
+        payment_errors = validate_payment_sifen_fields(
+            sales_invoice,
+            is_pos,
+            customer_country
+        )
+        errors.extend(payment_errors)
 
     # Raise all errors at once
     if errors:

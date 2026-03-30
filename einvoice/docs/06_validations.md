@@ -138,6 +138,29 @@ doc_events = {
 
 ---
 
+### 9. Campo "Incluir Pago Después de Validar"
+
+Este campo permite validar facturas **de Contado** sin pagos registrados, pero **bloquea el envío a FEPY** hasta que se registren los pagos.
+
+| Validación | Descripción | Error si falla |
+|-----------|-------------|----------------|
+| is_pos AND incluir_pago_despues_validar | Solo uno puede estar marcado | "Only one of the following options can be selected: Include Payment (POS) or Include Payment After Validate" |
+| incluir_pago_despues_validar + Sin pagos | Bloquea envío a FEPY | "Agrega un pago en Entrada de Pago para enviar a FEPY." |
+
+**Propósito:**
+- Permitir validar facturas de Contado sin pagos (útil cuando el pago se registra después)
+- Bloquear el envío a FEPY hasta que existan Payment Entries vinculados
+
+**Flujo correcto:**
+1. Marcar "Incluir Pago Después de Validar" (en Borrador)
+2. Validar factura (Submit) ✅
+3. Crear Payment Entry contra la factura
+4. Click en "Generar E-Invoice" ✅
+
+**Nota:** Para facturas a **Crédito**, este campo **no es necesario** - se puede enviar a FEPY sin pagos registrados.
+
+---
+
 ## Validaciones por Tipo de Operación
 
 ### B2B (tipoOperacion = 1)

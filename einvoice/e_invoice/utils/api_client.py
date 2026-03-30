@@ -133,26 +133,29 @@ def validar_campos_sifen(doc, method=None):
     Validate all SIFEN required fields before sending invoice.
     Orchestrates all validators.
     
+    Note: Payment validation is skipped during 'validate' event (Save).
+    Payment validation runs only during 'on_submit' event (Validate button).
+
     Args:
         doc: Sales Invoice document
         method: Event method name (unused)
-    
+
     Raises:
         frappe.ValidationError: If validation fails
     """
     errors = []
-    
+
     # Get company document
     try:
         company = frappe.get_doc("Company", doc.company)
     except Exception:
         errors.append(_("Company {0} not found").format(doc.company))
         frappe.throw("<br><br>".join(errors), title=_("Validation Error"))
-    
+
     # Validate Company fields
     company_errors = validate_company_sifen_fields(doc, company)
     errors.extend(company_errors)
-    
+
     # Validate Customer fields
     customer_data, customer_country = _get_customer_data(doc)
     tipo_operacion = _get_tipo_operacion(customer_data, customer_country)
@@ -161,20 +164,60 @@ def validar_campos_sifen(doc, method=None):
         doc, customer_data, customer_country, tipo_operacion
     )
     errors.extend(customer_errors)
-    
+
     # Validate Items
     items_errors = validate_items_sifen_fields(doc, customer_country)
     errors.extend(items_errors)
-    
-    # Validate Payments
-    is_pos_invoice = _is_pos_invoice(doc)
-    payment_errors = validate_payment_sifen_fields(doc, is_pos_invoice, customer_country)
-    errors.extend(payment_errors)
-    
+
+    # Validate Payments (only during on_submit, not during validate/save)
+    # Block E-Invoice generation if "Include Payment After Validate" is checked AND no payments exist
+    # docstatus: 0=Borrador, 1=Validado, 2=Cancelado
+    if hasattr(doc, 'docstatus') and doc.docstatus == 1:
+        # Check if "Include Payment After Validate" is checked
+        if hasattr(doc, 'incluir_pago_despues_validar') and doc.incluir_pago_despues_validar:
+            # Check if there are any Payment Entries linked to this invoice
+            has_payments = False
+            
+            # Check in Payment Entry Reference table
+            payment_entries = frappe.get_all(
+                "Payment Entry Reference",
+                filters={
+                    "reference_doctype": "Sales Invoice",
+                    "reference_name": doc.name
+                },
+                fields=["parent", "allocated_amount"]
+            )
+            
+            if payment_entries:
+                # Check if any payment entry has allocated amount > 0
+                for pe_ref in payment_entries:
+                    if pe_ref.allocated_amount and pe_ref.allocated_amount > 0:
+                        has_payments = True
+                        break
+            
+            # Also check in Sales Invoice payments table (for POS)
+            if not has_payments and hasattr(doc, 'payments') and doc.payments:
+                for payment in doc.payments:
+                    if payment.amount and payment.amount > 0:
+                        has_payments = True
+                        break
+            
+            # Block E-Invoice generation if no payments found
+            if not has_payments:
+                frappe.throw(
+                    _("Agrega un pago en Entrada de Pago para enviar a FEPY."),
+                    title=_("Se requiere el pago antes de la emisión de la factura electrónica contado.")
+                )
+        
+        # Validate payment fields for normal invoices
+        is_pos_invoice = hasattr(doc, 'is_pos') and doc.is_pos
+        payment_errors = validate_payment_sifen_fields(doc, is_pos_invoice, customer_country)
+        errors.extend(payment_errors)
+
     # Validate Control Number
     control_errors = _validate_control_number(doc)
     errors.extend(control_errors)
-    
+
     # Raise all errors
     if errors:
         frappe.throw("<br><br>".join(errors), title=_("Missing Required Fields for E-Invoice"))

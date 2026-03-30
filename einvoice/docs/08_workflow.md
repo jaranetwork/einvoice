@@ -130,7 +130,30 @@ El sistema ejecuta:
    - Valida Sales Taxes (tax_rate > 0%)
    - Valida Payment Schedule (credit_days si crédito)
 
-### 3.3 Resultado
+### 3.3 Campo "Incluir Pago Después de Validar"
+
+Para facturas **de Contado** sin pagos registrados:
+
+1. **Marcar el campo** (antes de validar):
+   ```
+   Incluir Pago Después de Validar = ✓
+   ```
+
+2. **Validar factura**:
+   - ✅ Permite validar sin pagos
+   - DocStatus = 1
+
+3. **Agregar pago después**:
+   - Crear Payment Entry contra la factura, o
+   - Agregar en tabla Payments
+
+4. **Enviar a FEPY**:
+   - El sistema verifica que existan pagos
+   - Si no hay pagos → Error: "Agrega un pago en Entrada de Pago para enviar a FEPY"
+
+**Nota:** Para facturas a **Crédito**, este campo **no es necesario**.
+
+### 3.4 Resultado
 
 **Si hay errores:**
 ```
@@ -356,4 +379,4 @@ Item Tax Template → Taxes → SIFEN Tipo IVA = "1|Gravado IVA"
 
 ---
 
-**Última actualización:** 2026-03-25
+**Última actualización:** 2026-03-28
