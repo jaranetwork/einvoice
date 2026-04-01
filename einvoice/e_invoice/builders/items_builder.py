@@ -70,7 +70,7 @@ def _build_item_data(item, sales_invoice, moneda):
     
     return {
         "codigo": item.item_code,
-        "descripcion": clean_html(item.description) or item.item_name or "Sin descripcion",
+        "descripcion": item.item_name or "Sin descripcion",
         "observacion": "",
         "unidadMedida": unidad_medida,
         "cantidad": abs(item.qty) if _is_credit_debit_note(sales_invoice) else item.qty,
@@ -124,21 +124,27 @@ def _get_cambio_item(moneda, sales_invoice):
 
 
 def _get_descuento_item(item, moneda):
-    """Get discount amount for item."""
-    descuento_item = 0
+    """Get discount amount for item.
     
+    Note: SIFEN requires discount to be always positive.
+    """
+    descuento_item = 0
+
     if hasattr(item, 'discount_amount') and item.discount_amount:
         descuento_item = float(item.discount_amount)
     elif hasattr(item, 'distributed_discount_amount') and item.distributed_discount_amount:
         descuento_item = float(item.distributed_discount_amount)
-    
+
+    # SIFEN requires discount to be always positive
+    descuento_item = abs(descuento_item)
+
     # Round according to SIFEN rules
     if descuento_item > 0:
         if moneda == "PYG":
             descuento_item = round(descuento_item)
         else:
             descuento_item = round(descuento_item, 8)
-    
+
     return descuento_item
 
 

@@ -69,10 +69,4 @@ Este módulo trabaja con el sistema FEPY:
 
 ---
 
-## Licencia
-
-[MIT](LICENSE)
-
----
-
 **Soporte**: Para reportar errores o solicitar funcionalidades, por favor crear un issue en el repositorio.

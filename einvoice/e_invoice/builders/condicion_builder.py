@@ -132,10 +132,42 @@ def _build_entregas(sales_invoice, moneda, condicion_tipo_cambio):
     """
     Build entregas array from payment schedule and linked Payment Entries.
     Maps ERPNext payment modes to SIFEN payment types.
+    
+    Priority:
+    1. POS payments table (for POS invoices)
+    2. Advances (linked Payment Entries)
+    3. Payment Schedule (for credit invoices)
     """
     entregas = []
 
-    # Check if invoice has advances (already paid)
+    # 1. Check payments table FIRST (for POS invoices)
+    if hasattr(sales_invoice, 'payments') and sales_invoice.payments:
+        for payment in sales_invoice.payments:
+            if payment.amount and payment.amount > 0:
+                payment_mode = payment.mode_of_payment
+                sifen_tipo = _get_sifen_payment_type(payment_mode)
+
+                entrega = {
+                    "tipo": sifen_tipo,
+                    "monto": str(abs(float(payment.amount))),
+                    "moneda": moneda,
+                    "cambio": condicion_tipo_cambio if moneda != "PYG" else 0
+                }
+
+                # Add additional info for specific payment types
+                if sifen_tipo in [3, 4]:  # Tarjeta de crédito/débito
+                    card_info = _get_card_info(payment_mode)
+                    if card_info:
+                        entrega["infoTarjeta"] = card_info
+
+                if sifen_tipo == 2:  # Cheque
+                    cheque_info = _get_cheque_info(payment_mode)
+                    if cheque_info:
+                        entrega["infoCheque"] = cheque_info
+
+                entregas.append(entrega)
+
+    # 2. Check if invoice has advances (already paid)
     if hasattr(sales_invoice, 'advances') and sales_invoice.advances:
         for advance in sales_invoice.advances:
             if advance.allocated_amount and advance.allocated_amount > 0:
@@ -151,7 +183,7 @@ def _build_entregas(sales_invoice, moneda, condicion_tipo_cambio):
                 }
                 entregas.append(entrega)
 
-    # Check payment schedule with payment terms
+    # 3. Check payment schedule with payment terms (for credit invoices)
     if hasattr(sales_invoice, 'payment_schedule') and sales_invoice.payment_schedule:
         for term in sales_invoice.payment_schedule:
             if term.payment_amount and term.payment_amount > 0:
@@ -183,45 +215,7 @@ def _build_entregas(sales_invoice, moneda, condicion_tipo_cambio):
 
                 entregas.append(entrega)
 
-    # Check payments table (for POS invoices)
-    if hasattr(sales_invoice, 'payments') and sales_invoice.payments:
-        for payment in sales_invoice.payments:
-            if payment.amount and payment.amount > 0:
-                payment_mode = payment.mode_of_payment
-                sifen_tipo = _get_sifen_payment_type(payment_mode)
-
-                entrega = {
-                    "tipo": sifen_tipo,
-                    "monto": str(abs(float(payment.amount))),
-                    "moneda": moneda,
-                    "cambio": condicion_tipo_cambio if moneda != "PYG" else 0
-                }
-
-                # Add additional info for specific payment types
-                if sifen_tipo in [3, 4]:  # Tarjeta de crédito/débito
-                    card_info = _get_card_info(payment_mode)
-                    if card_info:
-                        entrega["infoTarjeta"] = card_info
-
-                if sifen_tipo == 2:  # Cheque
-                    cheque_info = _get_cheque_info(payment_mode)
-                    if cheque_info:
-                        entrega["infoCheque"] = cheque_info
-
-                entregas.append(entrega)
-
-    # If no payment schedule or payments, use grand total as single payment
-   # if not entregas and hasattr(sales_invoice, 'grand_total'):
-        # Default to Efectivo for simple invoices
-   #     entrega = {
-   #         "tipo": 1,  # Efectivo
-   #         "monto": str(abs(float(sales_invoice.grand_total))),
-   #         "moneda": moneda,
-   #         "cambio": condicion_tipo_cambio if moneda != "PYG" else 0
-   #     }
-   #     entregas.append(entrega)
-
-   # return entregas
+    return entregas
 
 
 def _get_payment_mode_from_pe(reference_name):
