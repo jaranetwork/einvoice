@@ -56,23 +56,27 @@ def validar_moneda_sifen(moneda, invoice_name):
 def get_descuento_global(sales_invoice, moneda="PYG"):
     """
     Calculate global discount from Sales Invoice.
-    
+    Uses "Additional Discount" / "Descuento adicional" from invoice level,
+    NOT item-level discounts.
+
     Args:
         sales_invoice: Sales Invoice document
         moneda: Currency code for rounding rules
-    
+
     Returns:
         float: Total discount rounded according to SIFEN rules
     """
     total_discount = 0
-    
-    # Sum all discounts from items
-    for item in sales_invoice.items:
-        if hasattr(item, 'discount_amount') and item.discount_amount:
-            total_discount += float(item.discount_amount)
-        elif hasattr(item, 'distributed_discount_amount') and item.distributed_discount_amount:
-            total_discount += float(item.distributed_discount_amount)
-    
+
+    # Get discount from invoice level (Additional Discount / Descuento adicional)
+    if hasattr(sales_invoice, 'discount_amount') and sales_invoice.discount_amount:
+        total_discount = float(sales_invoice.discount_amount)
+    elif hasattr(sales_invoice, 'additional_discount_percentage') and sales_invoice.additional_discount_percentage:
+        # Calculate from percentage if discount_amount is not set
+        base_amount = sales_invoice.net_total or sales_invoice.total or 0
+        if base_amount > 0:
+            total_discount = base_amount * (float(sales_invoice.additional_discount_percentage) / 100)
+
     # Round according to SIFEN rules
     if total_discount > 0:
         if moneda == "PYG":
@@ -81,5 +85,5 @@ def get_descuento_global(sales_invoice, moneda="PYG"):
         else:
             # Foreign currency: max 8 decimals
             return round(total_discount, 8)
-    
+
     return 0

@@ -8,13 +8,14 @@ from einvoice.e_invoice.utils import (
 )
 import json
 
+
 def generate_einvoice_manually(doc, method=None):
     """
     Generate electronic invoice automatically on submit.
-    Called by hook: Sales Invoice.on_submit
+    Called by hook: Purchase Invoice.on_submit
     """
     invoice_name = doc.name
-    sales_invoice = doc
+    purchase_invoice = doc
 
     # Check if E-Invoice integration is enabled
     try:
@@ -25,23 +26,23 @@ def generate_einvoice_manually(doc, method=None):
         return
 
     # Skip if already generated
-    if sales_invoice.custom_einvoice_generated:
+    if purchase_invoice.custom_einvoice_generated:
         return  # Skip silently if already generated
 
     # Validate invoice is submitted
-    if sales_invoice.docstatus != 1:
+    if purchase_invoice.docstatus != 1:
         return  # Skip silently if not submitted
 
     # Validate required fields before sending to external API
     try:
-        validate_invoice_for_einvoice(sales_invoice)
+        validate_invoice_for_einvoice(purchase_invoice)
     except Exception as e:
         frappe.log_error(f"E-Invoice Validation Error: {str(e)}", "E-Invoice Validation")
         return  # Skip silently on validation error
 
     try:
         # Send invoice to external API
-        result = send_invoice_to_external_api(sales_invoice)
+        result = send_invoice_to_external_api(purchase_invoice)
 
         if result["success"]:
             # Show formatted message as HTML
@@ -52,13 +53,13 @@ def generate_einvoice_manually(doc, method=None):
             )
         else:
             frappe.log_error(
-                f"E-Invoice Generation Error for Invoice {sales_invoice.name}: {result['message']}",
+                f"E-Invoice Generation Error for Invoice {purchase_invoice.name}: {result['message']}",
                 "E-Invoice Error"
             )
 
     except Exception as e:
         frappe.log_error(
-            f"E-Invoice Generation Error for Invoice {sales_invoice.name}: {str(e)}",
+            f"E-Invoice Generation Error for Invoice {purchase_invoice.name}: {str(e)}",
             "E-Invoice Error"
         )
 
@@ -69,15 +70,14 @@ def generate_einvoice_manually_button(invoice_name, regenerate=False):
     Only accessible by Administrator role.
 
     Args:
-        invoice_name: Sales Invoice name
+        invoice_name: Purchase Invoice name
         regenerate: If True, force regeneration even if already generated
     """
     # Verify user is Administrator
     from frappe.utils import get_fullname
     current_user = frappe.session.user
-    
+
     # Check if current user has Administrator role
-    # Method 1: Check via User Role table
     user_roles = frappe.get_roles(current_user)
     if 'Administrator' not in user_roles:
         frappe.throw(
@@ -86,11 +86,11 @@ def generate_einvoice_manually_button(invoice_name, regenerate=False):
               "Please contact your system administrator.").format(get_fullname(current_user)),
             title=_("Permission Denied")
         )
-    
-    if not frappe.has_permission("Sales Invoice", "write", invoice_name):
+
+    if not frappe.has_permission("Purchase Invoice", "write", invoice_name):
         frappe.throw(_("You do not have permission to modify this invoice"))
 
-    sales_invoice = frappe.get_doc("Sales Invoice", invoice_name)
+    purchase_invoice = frappe.get_doc("Purchase Invoice", invoice_name)
 
     # Check if E-Invoice integration is enabled
     try:
@@ -101,8 +101,7 @@ def generate_einvoice_manually_button(invoice_name, regenerate=False):
         frappe.throw(_("E-Invoice settings not configured properly"))
 
     # Skip if already generated (unless regenerate flag is set)
-    if sales_invoice.custom_einvoice_generated and not regenerate:
-        # Show message that it's already generated
+    if purchase_invoice.custom_einvoice_generated and not regenerate:
         frappe.msgprint(
             _("E-Invoice already generated for this invoice.<br><br>"
               "If you need to regenerate, please use the 'Regenerate' button in the E-Invoice menu."),
@@ -112,21 +111,21 @@ def generate_einvoice_manually_button(invoice_name, regenerate=False):
         return
 
     # Validate invoice is submitted
-    if sales_invoice.docstatus != 1:
+    if purchase_invoice.docstatus != 1:
         frappe.throw(_("Cannot generate E-Invoice for a draft invoice. Please submit the invoice first."))
 
     # Validate required fields before sending to external API
-    validate_invoice_for_einvoice(sales_invoice)
+    validate_invoice_for_einvoice(purchase_invoice)
 
     try:
         # Send invoice to external API
-        result = send_invoice_to_external_api(sales_invoice)
+        result = send_invoice_to_external_api(purchase_invoice)
 
         if result["success"]:
             message = result["message"]
             if regenerate:
                 message = _("E-Invoice regenerated and sent to SIFEN successfully!<br><br>") + message
-            
+
             frappe.msgprint(
                 message,
                 title="E-Invoice Generated" if not regenerate else "E-Invoice Regenerated",
@@ -137,205 +136,189 @@ def generate_einvoice_manually_button(invoice_name, regenerate=False):
             frappe.throw(_(f"Error generating E-Invoice: {result['message']}"))
 
     except Exception as e:
-        error_msg = str(e)[:200]  # Limitar a 200 caracteres para evitar error de longitud
+        error_msg = str(e)[:200]
         frappe.log_error(
-            f"E-Invoice Generation Error for Invoice {sales_invoice.name}: {error_msg}",
+            f"E-Invoice Generation Error for Invoice {purchase_invoice.name}: {error_msg}",
             "E-Invoice Error"
         )
         frappe.throw(_(f"Error generating E-Invoice: {error_msg}"))
 
 
-def validate_invoice_for_einvoice(sales_invoice):
+def validate_invoice_for_einvoice(purchase_invoice):
     """
     Validate that all required fields are present before sending to SIFEN API.
-    Validates according to tipoOperacion (1=B2B, 2=B2C, 3=B2G, 4=B2F).
-
-    Required fields vary by operation type:
-    - B2B (1): Full validation (RUC, address, departamento, distrito, ciudad)
-    - B2C (2): Light validation (no RUC required, address optional)
-    - B2G (3): Full validation (government entity)
-    - B2F (4): Foreign customer (country != PRY, no departamento/distrito/ciudad required)
+    For Purchase Invoice, we validate company and supplier data.
     """
     errors = []
 
-    # Validate: Only one of "Include Payment (POS)" or "Include Payment After Validate" can be checked
-    if hasattr(sales_invoice, 'is_pos') and hasattr(sales_invoice, 'es_factura_credito'):
-        if sales_invoice.is_pos and sales_invoice.es_factura_credito:
-            errors.append(
-                _("Only one of the following options can be selected:<br>"
-                  "<strong>Include Payment (POS)</strong> or <strong>Include Payment After Validate</strong><br><br>"
-                  "Please uncheck one of them.")
-            )
-
     # Validate Company Tax ID
-    company = frappe.get_doc("Company", sales_invoice.company)
+    company = frappe.get_doc("Company", purchase_invoice.company)
     if not company.tax_id:
-        errors.append(_("Company Tax ID (RUC) is missing in Company {0}").format(sales_invoice.company))
+        errors.append(_("Company Tax ID (RUC) is missing in Company {0}").format(purchase_invoice.company))
 
-    # Validate Customer
-    if not sales_invoice.customer:
-        errors.append(_("Customer is required"))
+    # Validate Supplier
+    if not purchase_invoice.supplier:
+        errors.append(_("Supplier is required"))
 
-    # Get customer data for validation
-    customer = None
-    customer_country = ""
-    customer_group = ""
-    customer_tax_id = ""
-    customer_type = ""
-    customer_contribuyente = False
-    customer_codigo = ""
+    # Get supplier data for validation
+    supplier = None
+    supplier_country = ""
+    supplier_group = ""
+    supplier_tax_id = ""
+    supplier_type = ""
+    supplier_contribuyente = False
+    supplier_codigo = ""
 
-    if sales_invoice.customer:
-        customer = frappe.db.get_value(
-            "Customer",
-            sales_invoice.customer,
-            ["customer_type", "customer_group", "tax_id", "sifen_contribuyente", "sifen_codigo_cliente"],
+    if purchase_invoice.supplier:
+        supplier = frappe.db.get_value(
+            "Supplier",
+            purchase_invoice.supplier,
+            ["supplier_type", "supplier_group", "tax_id", "sifen_contribuyente", "sifen_codigo_proveedor"],
             as_dict=True
         )
-        if customer:
-            customer_type = customer.customer_type or ""
-            customer_group = customer.customer_group or ""
-            customer_tax_id = customer.tax_id or ""
-            customer_contribuyente = bool(customer.sifen_contribuyente) if customer.sifen_contribuyente else False
-            customer_codigo = customer.sifen_codigo_cliente or ""
+        if supplier:
+            supplier_type = supplier.supplier_type or ""
+            supplier_group = supplier.supplier_group or ""
+            supplier_tax_id = supplier.tax_id or ""
+            supplier_contribuyente = bool(supplier.sifen_contribuyente) if supplier.sifen_contribuyente else False
+            supplier_codigo = supplier.sifen_codigo_proveedor or ""
 
-        # Get country from customer's address
-        if sales_invoice.customer_address:
+        # Get country from supplier's address
+        if purchase_invoice.supplier_address:
             address = frappe.db.get_value(
                 "Address",
-                sales_invoice.customer_address,
+                purchase_invoice.supplier_address,
                 "country",
                 as_dict=True
             )
-            customer_country = address.country if address else ""
+            supplier_country = address.country if address else ""
 
-        # VALIDACIÓN: Foreign customers (B2F) must be "No Contribuyente"
-        if customer_country and customer_country != "Paraguay":
-            if customer_contribuyente:
+        # VALIDACIÓN: Foreign suppliers (B2F) must be "No Contribuyente"
+        if supplier_country and supplier_country != "Paraguay":
+            if supplier_contribuyente:
                 errors.append(
-                    _("Foreign customers (country ≠ Paraguay) must be 'No Contribuyente'.<br><br>"
-                      "Customer: {0}<br>"
+                    _("Foreign suppliers (country ≠ Paraguay) must be 'No Contribuyente'.<br><br>"
+                      "Supplier: {0}<br>"
                       "Country: {1}<br>"
                       "Current: Es contribuyente = Yes<br><br>"
-                      "Please uncheck 'Es contribuyente?' in customer tax section.").format(
-                        sales_invoice.customer,
-                        customer_country
+                      "Please uncheck 'Es contribuyente?' in supplier tax section.").format(
+                        purchase_invoice.supplier,
+                        supplier_country
                     )
                 )
 
-    # VALIDACIÓN: Customer must have sifen_codigo_cliente
-    if not customer_codigo:
+    # VALIDACIÓN: Supplier must have sifen_codigo_proveedor
+    if not supplier_codigo:
         errors.append(
-            _("Customer {0} does not have SIFEN Customer Code (sifen_codigo_cliente).<br><br>"
-              "The customer code is required by SIFEN to identify the customer uniquely.<br><br>"
+            _("Supplier {0} does not have SIFEN Code (sifen_codigo_proveedor).<br><br>"
+              "The code is required by SIFEN to identify the supplier uniquely.<br><br>"
               "To fix this:<br>"
-              "1. Go to Customer {0}<br>"
-              "2. The code should be auto-generated (format: CUST-YYYY-#####)<br>"
+              "1. Go to Supplier {0}<br>"
+              "2. The code should be auto-generated (format: SUPP-YYYY-#####)<br>"
               "3. If not generated, run the following command:<br>"
-              "&nbsp;&nbsp;&nbsp;&nbsp;bench --site [site-name] execute einvoice.e_invoice.doctype.customer.customer.update_existing_customers").format(
-                sales_invoice.customer
+              "&nbsp;&nbsp;&nbsp;&nbsp;bench --site [site-name] execute einvoice.e_invoice.doctype.supplier.supplier.update_existing_suppliers").format(
+                purchase_invoice.supplier
             )
         )
-    
+
     # Determine tipoOperacion for validation
     tipo_operacion = None
-    
-    if customer:
-        if customer_type == "Company":
-            customer_group_lower = customer_group.lower() if customer_group else ""
-            if "gubernamental" in customer_group_lower or "government" in customer_group_lower:
+
+    if supplier:
+        if supplier_type == "Company":
+            supplier_group_lower = supplier_group.lower() if supplier_group else ""
+            if "gubernamental" in supplier_group_lower or "government" in supplier_group_lower:
                 tipo_operacion = 3  # B2G
             else:
                 tipo_operacion = 1  # B2B
-        elif customer_type == "Individual":
-            if customer_country and customer_country != "Paraguay":
+        elif supplier_type == "Individual":
+            if supplier_country and supplier_country != "Paraguay":
                 tipo_operacion = 4  # B2F
             else:
                 tipo_operacion = 2  # B2C
-        
-        # Override for customers without RUC
-        if not customer_tax_id:
-            if customer_country and customer_country != "Paraguay":
+
+        # Override for suppliers without RUC
+        if not supplier_tax_id:
+            if supplier_country and supplier_country != "Paraguay":
                 tipo_operacion = 4  # B2F
             else:
                 tipo_operacion = 2  # B2C
-    
+
     if tipo_operacion is None:
         errors.append(
-            _("Could not determine tipoOperacion (tipo de operación) for customer {0}.<br><br>"
-              "Customer Data:<br>"
-              "- customer_type: {1}<br>"
-              "- customer_group: {2}<br>"
+            _("Could not determine tipoOperacion (tipo de operación) for supplier {0}.<br><br>"
+              "Supplier Data:<br>"
+              "- supplier_type: {1}<br>"
+              "- supplier_group: {2}<br>"
               "- country: {3}<br>"
               "- tax_id: {4}<br><br>"
-              "Please verify customer data is complete.").format(
-                sales_invoice.customer,
-                customer_type or "N/A",
-                customer_group or "N/A",
-                customer_country or "N/A",
-                customer_tax_id or "N/A"
+              "Please verify supplier data is complete.").format(
+                purchase_invoice.supplier,
+                supplier_type or "N/A",
+                supplier_group or "N/A",
+                supplier_country or "N/A",
+                supplier_tax_id or "N/A"
             )
         )
     else:
         # Validate according to tipoOperacion
         if tipo_operacion == 4:  # B2F - Foreigner
             # Validate country is NOT Paraguay
-            if customer_country == "Paraguay":
+            if supplier_country == "Paraguay":
                 errors.append(
                     _("B2F (Foreigner) operation requires country different to Paraguay.<br><br>"
                       "Current country: {0}<br><br>"
-                      "Please update customer address to have a country different to Paraguay.").format(
-                        customer_country or "N/A"
+                      "Please update supplier address to have a country different to Paraguay.").format(
+                        supplier_country or "N/A"
                     )
                 )
-            
-            # Validate customer is not contribuyente
-            if sales_invoice.customer:
+
+            # Validate supplier is not contribuyente
+            if purchase_invoice.supplier:
                 sifen_contribuyente = frappe.db.get_value(
-                    "Customer",
-                    sales_invoice.customer,
+                    "Supplier",
+                    purchase_invoice.supplier,
                     "sifen_contribuyente"
                 )
                 if sifen_contribuyente:
                     errors.append(
-                        _("B2F (Foreigner) operation requires customer to be 'No Contribuyente'.<br><br>"
+                        _("B2F (Foreigner) operation requires supplier to be 'No Contribuyente'.<br><br>"
                           "Current: Es contribuyente = Yes<br><br>"
-                          "Please uncheck 'Es contribuyente?' in customer tax section.")
+                          "Please uncheck 'Es contribuyente?' in supplier tax section.")
                     )
-        
+
         else:  # B2B, B2C, B2G - Operations in Paraguay
-            # Validate Customer Tax ID for B2B and B2G
-            if tipo_operacion in [1, 3] and not customer_tax_id:
+            # Validate Supplier Tax ID for B2B and B2G
+            if tipo_operacion in [1, 3] and not supplier_tax_id:
                 errors.append(
-                    _("Customer Tax ID (RUC) is required for {0} operation.<br><br>"
-                      "Customer: {1}<br>"
+                    _("Supplier Tax ID (RUC) is required for {0} operation.<br><br>"
+                      "Supplier: {1}<br>"
                       "tipoOperacion: {2} ({3})<br><br>"
-                      "Please set Tax ID in customer record.").format(
+                      "Please set Tax ID in supplier record.").format(
                         "B2B" if tipo_operacion == 1 else "B2G",
-                        sales_invoice.customer,
+                        purchase_invoice.supplier,
                         tipo_operacion,
                         "B2B" if tipo_operacion == 1 else "B2G"
                     )
                 )
-            
+
             # Validate address for B2B, B2C, B2G (Paraguay addresses only)
-            if sales_invoice.customer_address:
-                address = frappe.get_doc("Address", sales_invoice.customer_address)
-                
+            if purchase_invoice.supplier_address:
+                address = frappe.get_doc("Address", purchase_invoice.supplier_address)
+
                 # Only validate state/county/city if country is Paraguay
                 if address.country == "Paraguay":
-                    # Validate state (departamento) - format: "1|CAPITAL" or just number
+                    # Validate state (departamento)
                     if not address.state:
                         errors.append(
-                            _("Departamento (State) is required in customer address for tipoOperacion {0} (Paraguay).<br><br>"
+                            _("Departamento (State) is required in supplier address for tipoOperacion {0} (Paraguay).<br><br>"
                               "Address: {1}<br><br>"
                               "Please select a valid Paraguayan department using 🔍 Buscar Departamento button.").format(
                                 tipo_operacion,
-                                sales_invoice.customer_address
+                                purchase_invoice.supplier_address
                             )
                         )
                     else:
-                        # Validate state format (should be like "1|CAPITAL" or "1")
                         state_value = address.state.strip()
                         if state_value and not state_value.split('|')[0].isdigit():
                             errors.append(
@@ -345,80 +328,82 @@ def validate_invoice_for_einvoice(sales_invoice):
                                     address.state
                                 )
                             )
-                    
+
                     # Validate county (distrito)
                     if not address.county:
                         errors.append(
-                            _("Distrito (County) is required in customer address for tipoOperacion {0} (Paraguay).<br><br>"
+                            _("Distrito (County) is required in supplier address for tipoOperacion {0} (Paraguay).<br><br>"
                               "Address: {1}<br><br>"
                               "Please select a valid Paraguayan district.").format(
                                 tipo_operacion,
-                                sales_invoice.customer_address
+                                purchase_invoice.supplier_address
                             )
                         )
-                    
+
                     # Validate city (ciudad)
                     if not address.city:
                         errors.append(
-                            _("Ciudad (City) is required in customer address for tipoOperacion {0} (Paraguay).<br><br>"
+                            _("Ciudad (City) is required in supplier address for tipoOperacion {0} (Paraguay).<br><br>"
                               "Address: {1}<br><br>"
                               "Please select a valid Paraguayan city.").format(
                                 tipo_operacion,
-                                sales_invoice.customer_address
+                                purchase_invoice.supplier_address
                             )
                         )
                 else:
                     # Non-Paraguay address - validate country is set
                     if not address.country:
                         errors.append(
-                            _("Country is required in customer address for foreign customers.<br><br>"
+                            _("Country is required in supplier address for foreign suppliers.<br><br>"
                               "Address: {1}<br><br>"
-                              "Please select the customer's country.").format(
+                              "Please select the supplier's country.").format(
                                 tipo_operacion,
-                                sales_invoice.customer_address
+                                purchase_invoice.supplier_address
                             )
                         )
 
     # Validate Company has establishment code
     if not hasattr(company, 'codigo_establecimiento') or not company.codigo_establecimiento:
-        errors.append(_("Establishment Code (codigo_establecimiento) is missing in Company {0}").format(sales_invoice.company))
+        errors.append(_("Establishment Code (codigo_establecimiento) is missing in Company {0}").format(purchase_invoice.company))
 
     # Validate Company has timbrado
     if not hasattr(company, 'numero_timbrado') or not company.numero_timbrado:
-        errors.append(_("Timbrado Number is missing in Company {0}").format(sales_invoice.company))
+        errors.append(_("Timbrado Number is missing in Company {0}").format(purchase_invoice.company))
 
     # Validate Company has tax regimen
     if not hasattr(company, 'tipo_regimen') or not company.tipo_regimen:
-        errors.append(_("Tax Regimen (tipo_regimen) is missing in Company {0}").format(sales_invoice.company))
+        errors.append(_("Tax Regimen (tipo_regimen) is missing in Company {0}").format(purchase_invoice.company))
 
-    # Validate Company has economic activities (required by SIFEN API)
+    # Validate Company has economic activities
     if not hasattr(company, 'actividades_economicas') or not company.actividades_economicas:
-        errors.append(_("Economic Activities are missing in Company {0}. Please add at least one activity.").format(sales_invoice.company))
+        errors.append(_("Economic Activities are missing in Company {0}. Please add at least one activity.").format(purchase_invoice.company))
     elif len(company.actividades_economicas) == 0:
-        errors.append(_("At least one Economic Activity is required in Company {0}.").format(sales_invoice.company))
+        errors.append(_("At least one Economic Activity is required in Company {0}.").format(purchase_invoice.company))
     else:
-        # Validate each activity has code and description
         for idx, actividad in enumerate(company.actividades_economicas):
             if not actividad.codigo_actividad:
                 errors.append(_("Economic Activity #{0} is missing code.").format(idx + 1))
             if not actividad.descripcion_actividad:
                 errors.append(_("Economic Activity #{0} is missing description.").format(idx + 1))
 
-    # Validate SIFEN Responsible Person (required for electronic signature)
+    # Validate SIFEN Responsible Person
     if not hasattr(company, 'sifen_responsable_tipo_documento') or not company.sifen_responsable_tipo_documento:
-        errors.append(_("Responsible Person Document Type is missing in Company {0}").format(sales_invoice.company))
+        errors.append(_("Responsible Person Document Type is missing in Company {0}").format(purchase_invoice.company))
 
     if not hasattr(company, 'sifen_respons_numero_documento') or not company.sifen_respons_numero_documento:
-        errors.append(_("Responsible Person Document Number is missing in Company {0}").format(sales_invoice.company))
+        errors.append(_("Responsible Person Document Number is missing in Company {0}").format(purchase_invoice.company))
 
     if not hasattr(company, 'sifen_responsable_nombre') or not company.sifen_responsable_nombre:
-        errors.append(_("Responsible Person Name is missing in Company {0}").format(sales_invoice.company))
+        errors.append(_("Responsible Person Name is missing in Company {0}").format(purchase_invoice.company))
+
+    if not hasattr(company, 'sifen_responsable_cargo') or not company.sifen_responsable_cargo:
+        errors.append(_("Responsible Person Position is missing in Company {0}").format(purchase_invoice.company))
 
     # Validate Items
-    if not sales_invoice.items:
+    if not purchase_invoice.items:
         errors.append(_("No items found in invoice"))
     else:
-        for idx, item in enumerate(sales_invoice.items):
+        for idx, item in enumerate(purchase_invoice.items):
             if not item.item_code:
                 errors.append(_("Item Code is required for item #{0}").format(idx + 1))
             if not item.rate:
@@ -427,63 +412,21 @@ def validate_invoice_for_einvoice(sales_invoice):
                 errors.append(_("Quantity is required for item #{0} ({1})").format(idx + 1, item.item_code or "Unknown"))
 
     # Validate CDC for Credit/Debit Notes
-    if hasattr(sales_invoice, 'is_return') and sales_invoice.is_return:
-        if not hasattr(sales_invoice, 'return_against') or not sales_invoice.return_against:
+    if hasattr(purchase_invoice, 'is_return') and purchase_invoice.is_return:
+        if not hasattr(purchase_invoice, 'return_against') or not purchase_invoice.return_against:
             errors.append(_("Credit/Debit Note must reference an original invoice in 'Return Against' field"))
         else:
             try:
-                original_invoice = frappe.get_doc("Sales Invoice", sales_invoice.return_against)
+                original_invoice = frappe.get_doc("Purchase Invoice", purchase_invoice.return_against)
                 if not original_invoice.custom_sifen_cdc:
                     errors.append(
                         _("Original invoice {0} does not have a CDC (Código de Control).<br><br>"
                           "The referenced invoice must have a valid CDC from SIFEN before creating a Credit/Debit Note.").format(
-                            sales_invoice.return_against
+                            purchase_invoice.return_against
                         )
                     )
             except Exception:
-                errors.append(_("Could not find original invoice {0}").format(sales_invoice.return_against))
-
-    if hasattr(sales_invoice, 'is_debit_note') and sales_invoice.is_debit_note:
-        if not hasattr(sales_invoice, 'return_against') or not sales_invoice.return_against:
-            errors.append(_("Debit Note must reference an original invoice in 'Return Against' field"))
-        else:
-            try:
-                original_invoice = frappe.get_doc("Sales Invoice", sales_invoice.return_against)
-                if not original_invoice.custom_sifen_cdc:
-                    errors.append(
-                        _("Original invoice {0} does not have a CDC (Código de Control).<br><br>"
-                          "The referenced invoice must have a valid CDC from SIFEN before creating a Debit Note.").format(
-                            sales_invoice.return_against
-                        )
-                    )
-            except Exception:
-                errors.append(_("Could not find original invoice {0}").format(sales_invoice.return_against))
-
-    # Validate Payments (only during on_submit/Validar, not during Save)
-    # Payment validation is now handled by validate_payment_sifen_fields in payment_validator.py
-    if hasattr(sales_invoice, 'docstatus') and sales_invoice.docstatus == 1:
-        # Validate payment fields for normal invoices
-        is_pos_invoice = hasattr(sales_invoice, 'is_pos') and sales_invoice.is_pos
-
-        from einvoice.e_invoice.validators.payment_validator import validate_payment_sifen_fields
-
-        # Get customer country for validation
-        customer_country = ""
-        if sales_invoice.customer_address:
-            address = frappe.db.get_value(
-                "Address",
-                sales_invoice.customer_address,
-                "country",
-                as_dict=True
-            )
-            customer_country = address.country if address else ""
-
-        payment_errors = validate_payment_sifen_fields(
-            sales_invoice,
-            is_pos_invoice,
-            customer_country
-        )
-        errors.extend(payment_errors)
+                errors.append(_("Could not find original invoice {0}").format(purchase_invoice.return_against))
 
     # Raise all errors at once
     if errors:
@@ -492,20 +435,16 @@ def validate_invoice_for_einvoice(sales_invoice):
             title=_("Missing Required Fields for E-Invoice")
         )
 
-    if not hasattr(company, 'sifen_responsable_cargo') or not company.sifen_responsable_cargo:
-        errors.append(_("Responsible Person Position is missing in Company {0}").format(sales_invoice.company))
-
-    if errors:
-        frappe.throw("<br>".join(errors), title=_("Missing Required Fields"))
 
 @frappe.whitelist()
 def trigger_einvoice_generation(invoice_name):
     """Manually trigger E-Invoice generation for a specific invoice"""
 
-    if not frappe.has_permission("Sales Invoice", "write", invoice_name):
+    if not frappe.has_permission("Purchase Invoice", "write", invoice_name):
         frappe.throw(_("You do not have permission to modify this invoice"))
 
     return generate_einvoice_manually_button(invoice_name)
+
 
 @frappe.whitelist()
 def test_einvoice_connection():
@@ -521,14 +460,15 @@ def test_einvoice_connection():
 
     return result
 
+
 @frappe.whitelist()
 def get_einvoice_status(invoice_name):
     """Get E-Invoice status for a specific invoice from local database"""
 
-    if not frappe.has_permission("Sales Invoice", "read", invoice_name):
+    if not frappe.has_permission("Purchase Invoice", "read", invoice_name):
         frappe.throw(_("You do not have permission to read this invoice"))
 
-    invoice = frappe.get_doc("Sales Invoice", invoice_name)
+    invoice = frappe.get_doc("Purchase Invoice", invoice_name)
 
     # Validation 1: Check if invoice is submitted (not in draft)
     if invoice.docstatus == 0:
@@ -546,7 +486,7 @@ def get_einvoice_status(invoice_name):
               "Debe enviar la factura a SIFEN primero usando:<br>"
               "<strong>E-Invoice → Send to SIFEN</strong><br><br>"
               "Estado actual: <b>{1}</b>").format(
-                invoice_name, 
+                invoice_name,
                 "Borrador" if invoice.docstatus == 0 else "Validada" if invoice.docstatus == 1 else "Cancelada"
             ),
             title=_("E-Invoice No Generado")
@@ -579,16 +519,12 @@ def get_einvoice_status(invoice_name):
 def force_refresh_einvoice_status(invoice_name):
     """
     Force refresh E-Invoice status from SIFEN API.
-    This function queries the external API directly and updates local records.
-    Use this when external data was deleted and you need to re-sync.
-    Endpoint: GET {BASE_URL}/api/invoices/{id}
     """
-    if not frappe.has_permission("Sales Invoice", "read", invoice_name):
+    if not frappe.has_permission("Purchase Invoice", "read", invoice_name):
         frappe.throw(_("You do not have permission to read this invoice"))
 
-    invoice = frappe.get_doc("Sales Invoice", invoice_name)
+    invoice = frappe.get_doc("Purchase Invoice", invoice_name)
 
-    # Try to get factura_id from invoice
     factura_id = invoice.custom_sifen_factura_id
 
     if not factura_id:
@@ -602,9 +538,8 @@ def force_refresh_einvoice_status(invoice_name):
     if result["success"]:
         data = result.get("data", {})
 
-        # Update sales invoice with latest status
         frappe.db.set_value(
-            "Sales Invoice",
+            "Purchase Invoice",
             invoice_name,
             {
                 "custom_sifen_estado": data.get("estado", invoice.custom_sifen_estado),
@@ -624,8 +559,6 @@ def force_refresh_einvoice_status(invoice_name):
             alert=True
         )
     else:
-        # If API returns error (e.g., invoice not found in SIFEN),
-        # allow user to regenerate the invoice
         frappe.msgprint(
             _("SIFEN API returned: {0}<br/><br/>If the invoice was deleted in SIFEN, use '⚠️ Regenerate and Send' button.").format(
                 result.get("message", "Unknown error")
@@ -641,12 +574,11 @@ def force_refresh_einvoice_status(invoice_name):
 def refresh_einvoice_status(invoice_name):
     """
     Refresh E-Invoice status from SIFEN API.
-    Endpoint: GET {BASE_URL}/api/invoices/{id}
     """
-    if not frappe.has_permission("Sales Invoice", "read", invoice_name):
+    if not frappe.has_permission("Purchase Invoice", "read", invoice_name):
         frappe.throw(_("You do not have permission to read this invoice"))
 
-    invoice = frappe.get_doc("Sales Invoice", invoice_name)
+    invoice = frappe.get_doc("Purchase Invoice", invoice_name)
 
     if not invoice.custom_sifen_factura_id:
         frappe.throw(_("No SIFEN Factura ID found for this invoice"))
@@ -656,9 +588,8 @@ def refresh_einvoice_status(invoice_name):
     if result["success"]:
         data = result.get("data", {})
 
-        # Update sales invoice with latest status
         frappe.db.set_value(
-            "Sales Invoice",
+            "Purchase Invoice",
             invoice_name,
             {
                 "custom_sifen_estado": data.get("estado", invoice.custom_sifen_estado),
@@ -677,16 +608,16 @@ def refresh_einvoice_status(invoice_name):
 
     return result
 
+
 @frappe.whitelist()
 def download_einvoice_xml(invoice_name):
     """
     Download XML document from SIFEN API.
-    Endpoint: GET {BASE_URL}/api/invoices/{id}/download-xml
     """
-    if not frappe.has_permission("Sales Invoice", "read", invoice_name):
+    if not frappe.has_permission("Purchase Invoice", "read", invoice_name):
         frappe.throw(_("You do not have permission to read this invoice"))
 
-    invoice = frappe.get_doc("Sales Invoice", invoice_name)
+    invoice = frappe.get_doc("Purchase Invoice", invoice_name)
 
     if not invoice.custom_sifen_factura_id:
         frappe.throw(_("No SIFEN Factura ID found for this invoice"))
@@ -694,9 +625,8 @@ def download_einvoice_xml(invoice_name):
     result = download_xml(invoice.custom_sifen_factura_id)
 
     if result["success"]:
-        # Update the XML link in sales invoice
         frappe.db.set_value(
-            "Sales Invoice",
+            "Purchase Invoice",
             invoice_name,
             "custom_sifen_xml_link",
             result["file_url"]
@@ -710,16 +640,16 @@ def download_einvoice_xml(invoice_name):
 
     return result
 
+
 @frappe.whitelist()
 def download_einvoice_pdf(invoice_name):
     """
     Download PDF (KUDE) document from SIFEN API.
-    Endpoint: GET {BASE_URL}/api/invoices/{id}/download-pdf
     """
-    if not frappe.has_permission("Sales Invoice", "read", invoice_name):
+    if not frappe.has_permission("Purchase Invoice", "read", invoice_name):
         frappe.throw(_("You do not have permission to read this invoice"))
 
-    invoice = frappe.get_doc("Sales Invoice", invoice_name)
+    invoice = frappe.get_doc("Purchase Invoice", invoice_name)
 
     if not invoice.custom_sifen_factura_id:
         frappe.throw(_("No SIFEN Factura ID found for this invoice"))
@@ -727,9 +657,8 @@ def download_einvoice_pdf(invoice_name):
     result = download_pdf(invoice.custom_sifen_factura_id)
 
     if result["success"]:
-        # Update the PDF link in sales invoice
         frappe.db.set_value(
-            "Sales Invoice",
+            "Purchase Invoice",
             invoice_name,
             "custom_sifen_kude_link",
             result["file_url"]
@@ -750,7 +679,7 @@ def get_einvoice_preview_html(invoice_name):
     Generate HTML preview for invoice without sending to SIFEN.
     Uses the same prepare_invoice_data() function that builds the JSON payload.
     """
-    if not frappe.has_permission("Sales Invoice", "read", invoice_name):
+    if not frappe.has_permission("Purchase Invoice", "read", invoice_name):
         frappe.throw(_("You do not have permission to read this invoice"))
 
     from einvoice.e_invoice.utils.preview import get_invoice_preview_html

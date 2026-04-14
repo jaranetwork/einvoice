@@ -10,7 +10,6 @@ from .api_client import (
     download_pdf
 )
 from .utils import (
-    get_tipo_transaccion,
     get_indicador_presencia,
     get_condicion_anticipo,
     get_condicion_operacion,
@@ -36,7 +35,6 @@ __all__ = [
     'get_invoice_status',
     'download_xml',
     'download_pdf',
-    'get_tipo_transaccion',
     'get_indicador_presencia',
     'get_condicion_anticipo',
     'get_condicion_operacion',

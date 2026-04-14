@@ -31,6 +31,7 @@ app_license = "gpl-3.0"
 # include js in doctype views
 doctype_js = {
     "Sales Invoice": "e_invoice/public/js/sales_invoice_combined.js",
+    "Purchase Invoice": "e_invoice/public/js/purchase_invoice.js",
     "Address": "e_invoice/doctype/address/address.js"
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
@@ -133,11 +134,22 @@ doc_events = {
     "Customer": {
         "before_insert": "einvoice.e_invoice.doctype.customer.customer.before_insert",
     },
+    "Supplier": {
+        "before_insert": "einvoice.e_invoice.doctype.supplier.supplier.before_insert",
+    },
     "Sales Invoice": {
         "validate": [
             "einvoice.e_invoice.utils.api_client.asignar_numero_control",
             "einvoice.e_invoice.utils.api_client.validar_campos_sifen",
         ],
+        "on_cancel": "einvoice.e_invoice.doc_events.sales_invoice.on_cancel",
+    },
+    "Purchase Invoice": {
+        "validate": [
+            "einvoice.e_invoice.utils.api_client.asignar_numero_control",
+            "einvoice.e_invoice.utils.api_client.validar_campos_sifen",
+        ],
+        "on_cancel": "einvoice.e_invoice.doc_events.purchase_invoice.on_cancel",
     }
     # "Sales Invoice": {
     #     "on_submit": "einvoice.e_invoice.doc_events.sales_invoice.generate_einvoice_manually",

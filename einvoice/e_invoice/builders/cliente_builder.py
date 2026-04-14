@@ -1,33 +1,50 @@
 """
 Builds the CLIENTE section of SIFEN payload.
-Contains customer information and address.
+Contains customer/supplier information and address.
 """
 
 import frappe
 from ..utils.utils import get_paraguay_location_codes
 
 
-def get_customer_details(sales_invoice):
+def get_party_details(doc):
     """
-    Get customer details and location codes.
-    
+    Get party (customer or supplier) details and location codes.
+    Works with both Sales Invoice and Purchase Invoice.
+
     Args:
-        sales_invoice: Sales Invoice document
-    
+        doc: Sales Invoice or Purchase Invoice document
+
     Returns:
-        tuple: (customer, customer_country, address_data, location_codes)
+        tuple: (party, party_country, address_data, location_codes)
     """
-    customer = frappe.db.get_value(
-        "Customer",
-        sales_invoice.customer,
-        ["customer_name", "tax_id", "customer_type", "email_id", "mobile_no",
-         "sifen_contribuyente", "customer_group", "sifen_tipo_documento",
-         "sifen_tipo_impuesto", "sifen_codigo_cliente"],
+    is_purchase = doc.doctype == "Purchase Invoice"
+
+    if is_purchase:
+        party_doctype = "Supplier"
+        party_field = "supplier"
+        address_field = "supplier_address"
+        fields = ["supplier_name as customer_name", "tax_id", "supplier_type as customer_type",
+                  "email_id", "mobile_no", "sifen_contribuyente", "sifen_tipo_contribuyente",
+                  "supplier_group as customer_group",
+                  "sifen_tipo_documento", "sifen_tipo_impuesto", "sifen_codigo_proveedor as sifen_codigo_cliente"]
+    else:
+        party_doctype = "Customer"
+        party_field = "customer"
+        address_field = "customer_address"
+        fields = ["customer_name", "tax_id", "customer_type", "email_id", "mobile_no",
+                  "sifen_contribuyente", "sifen_tipo_contribuyente", "customer_group", "sifen_tipo_documento",
+                  "sifen_tipo_impuesto", "sifen_codigo_cliente"]
+
+    party = frappe.db.get_value(
+        party_doctype,
+        getattr(doc, party_field),
+        fields,
         as_dict=True
     )
-    
-    address_data = _get_customer_address(sales_invoice)
-    customer_country = address_data.get("country", "")
+
+    address_data = _get_party_address(doc, address_field, party_doctype, getattr(doc, party_field))
+    party_country = address_data.get("country", "")
 
     location_codes = get_paraguay_location_codes(
         address_data.get("state", ""),
@@ -36,44 +53,56 @@ def get_customer_details(sales_invoice):
         address_data.get("country", "")
     )
 
-    return customer, customer_country, address_data, location_codes
+    return party, party_country, address_data, location_codes
 
 
-def build_cliente_section(sales_invoice, customer, address_data, location_codes, tipo_documento):
+def build_cliente_section(doc, party, address_data, location_codes, tipo_documento):
     """
-    Build the 'cliente' section with customer information.
-    
+    Build the 'cliente' section with party (customer/supplier) information.
+
     Args:
-        sales_invoice: Sales Invoice document
-        customer: Customer data dict
+        doc: Sales Invoice or Purchase Invoice document
+        party: Party data dict
         address_data: Address data dict
         location_codes: Location codes dict
         tipo_documento: Document type (5=NC, 6=ND)
-    
+
     Returns:
         dict: Cliente section for SIFEN payload
     """
     # Determine operation type
-    tipo_operacion = _determine_tipo_operacion(customer, address_data.get("country", ""))
-    
+    tipo_operacion = _determine_tipo_operacion(party, address_data.get("country", ""))
+
     # Determine if contributor
-    es_contribuyente = _determine_contribuyente(customer)
-    
-    # Get document type and number
-    documento_tipo, documento_numero = _get_documento_data(customer, sales_invoice.customer)
-    
+    es_contribuyente = _determine_contribuyente(party)
+
+    # Determine tipoContribuyente from SIFEN field, fallback from customer_type
+    tipo_contribuyente_raw = party.get('sifen_tipo_contribuyente', '')
+    if tipo_contribuyente_raw:
+        tipo_contribuyente_str = str(tipo_contribuyente_raw).split('|')[0].strip()
+        try:
+            tipo_contribuyente = int(tipo_contribuyente_str)
+        except (ValueError, TypeError):
+            tipo_contribuyente = 1 if party.customer_type == "Individual" else 2
+    else:
+        # Fallback: Company = Jurídica (2), Individual = Física (1)
+        tipo_contribuyente = 1 if party.customer_type == "Individual" else 2
+
     # Get country codes
     pais_codigo, pais_nombre = _get_pais_data(tipo_operacion, address_data.get("country", ""))
-    
+
+    # Get document type and number (only if not contributor and not B2F)
+    documento_tipo, documento_numero = _get_documento_data(party, party.customer_name, es_contribuyente, tipo_operacion)
+
     # Build cliente object
     cliente = {
         "contribuyente": es_contribuyente,
         "tipoOperacion": tipo_operacion,
-        "ruc": customer.tax_id or "",
-        "razonSocial": customer.customer_name or "",
-        "nombreFantasia": customer.customer_name or "",
-        "direccion": address_data.get("address_line1", "") or "N/A",
-        "numeroCasa": address_data.get("sifen_numero_casa") or "0",
+        "ruc": party.tax_id,
+        "razonSocial": party.customer_name,
+        "nombreFantasia": party.customer_name,
+        "direccion": address_data.get("address_line1", ""),
+        "numeroCasa": address_data.get("sifen_numero_casa"),
         "complementoDireccion1": address_data.get("address_line2", ""),
         "departamento": None if tipo_operacion == 4 else location_codes["departamento"],
         "departamentoDescripcion": None if tipo_operacion == 4 else location_codes["departamentoDescripcion"],
@@ -83,25 +112,28 @@ def build_cliente_section(sales_invoice, customer, address_data, location_codes,
         "ciudadDescripcion": None if tipo_operacion == 4 else location_codes["ciudadDescripcion"],
         "pais": "PRY" if tipo_operacion != 4 else pais_codigo,
         "paisDescripcion": "Paraguay" if tipo_operacion != 4 else pais_nombre,
-        "tipoContribuyente": 1 if customer.customer_type == "Company" else 2,
-        "documentoTipo": documento_tipo,
-        "documentoNumero": documento_numero,
-        "telefono": address_data.get("phone") or customer.mobile_no or "",
-        "celular": address_data.get("phone") or customer.mobile_no or "",
-        "email": address_data.get("email_id") or customer.email_id or "",
-        "codigo": customer.sifen_codigo_cliente or ""
+        "tipoContribuyente": tipo_contribuyente,
+        "telefono": address_data.get("phone") or party.mobile_no,
+        "celular": address_data.get("phone") or party.mobile_no,
+        "email": address_data.get("email_id") or party.email_id,
+        "codigo": party.sifen_codigo_cliente
     }
+
+    # Only add document type/number if not contributor and not B2F
+    if documento_tipo is not None and documento_numero is not None:
+        cliente["documentoTipo"] = documento_tipo
+        cliente["documentoNumero"] = documento_numero
 
     return cliente
 
 
-def _get_customer_address(sales_invoice):
-    """Get customer address from invoice or customer master."""
+def _get_party_address(doc, address_field, party_doctype=None, party_name=None):
+    """Get party address from invoice or party master."""
     address_data = {
         "address_line1": "",
         "address_line2": "",
         "city": "",
-        "county": "",  # Distrito
+        "county": "",
         "state": "",
         "country": "Paraguay",
         "phone": "",
@@ -110,22 +142,83 @@ def _get_customer_address(sales_invoice):
     }
 
     # Try to get from invoice address
-    if hasattr(sales_invoice, 'customer_address') and sales_invoice.customer_address:
+    invoice_address = getattr(doc, address_field, None) if hasattr(doc, address_field) else None
+    if invoice_address:
         try:
-            address_doc = frappe.get_doc("Address", sales_invoice.customer_address)
+            address_doc = frappe.get_doc("Address", invoice_address)
             address_data.update({
-                "address_line1": address_doc.address_line1 or "",
-                "address_line2": address_doc.address_line2 or "",
-                "city": address_doc.city or "",
-                "county": address_doc.county or "",  # Distrito
-                "state": address_doc.state or "",
-                "country": address_doc.country or "Paraguay",
-                "phone": address_doc.phone or "",
-                "email_id": address_doc.email_id or "",
-                "sifen_numero_casa": getattr(address_doc, 'sifen_numero_casa', '') or ""
+                "address_line1": address_doc.address_line1,
+                "address_line2": address_doc.address_line2,
+                "city": address_doc.city,
+                "county": address_doc.county,
+                "state": address_doc.state,
+                "country": address_doc.country,
+                "phone": address_doc.phone,
+                "email_id": address_doc.email_id,
+                "sifen_numero_casa": getattr(address_doc, 'sifen_numero_casa', '')
             })
+            return address_data
         except Exception:
             pass
+
+    # Fallback to party master address if no address found on invoice
+    if not party_name:
+        return address_data
+
+    try:
+        # Method 1: Query Address table directly, filtering by is_primary_address and Dynamic Link
+        primary_address_name = frappe.db.sql("""
+            SELECT ad.name 
+            FROM `tabAddress` ad
+            INNER JOIN `tabDynamic Link` dl ON dl.parent = ad.name
+            WHERE dl.link_doctype = %s 
+              AND dl.link_name = %s 
+              AND dl.parenttype = 'Address'
+              AND ad.is_primary_address = 1
+            LIMIT 1
+        """, (party_doctype, party_name), as_dict=True)
+
+        primary_address_name = primary_address_name[0].name if primary_address_name else None
+
+        # Method 2: Any address linked to the party (no primary filter)
+        if not primary_address_name:
+            any_address = frappe.db.sql("""
+                SELECT ad.name 
+                FROM `tabAddress` ad
+                INNER JOIN `tabDynamic Link` dl ON dl.parent = ad.name
+                WHERE dl.link_doctype = %s 
+                  AND dl.link_name = %s 
+                  AND dl.parenttype = 'Address'
+                LIMIT 1
+            """, (party_doctype, party_name), as_dict=True)
+
+            primary_address_name = any_address[0].name if any_address else None
+
+        # Method 3: Query Address by address_title containing party name
+        if not primary_address_name:
+            address_title = frappe.db.get_value(
+                "Address",
+                {"address_title": ["like", f"%{party_name}%"]},
+                "name"
+            )
+            primary_address_name = address_title
+
+        # Load the address document
+        if primary_address_name:
+            address_doc = frappe.get_doc("Address", primary_address_name)
+            address_data.update({
+                "address_line1": address_doc.address_line1,
+                "address_line2": address_doc.address_line2,
+                "city": address_doc.city,
+                "county": address_doc.county,
+                "state": address_doc.state,
+                "country": address_doc.country,
+                "phone": address_doc.phone,
+                "email_id": address_doc.email_id,
+                "sifen_numero_casa": getattr(address_doc, 'sifen_numero_casa', '')
+            })
+    except Exception:
+        pass
 
     return address_data
 
@@ -162,11 +255,18 @@ def _determine_contribuyente(customer):
     return False
 
 
-def _get_documento_data(customer, customer_name):
-    """Get document type and number."""
-    documento_tipo = 1  # Default: RUC
+def _get_documento_data(customer, customer_name, es_contribuyente, tipo_operacion):
+    """
+    Get document type and number.
+    Only returns values if customer is NOT contributor and operation is not B2F (4).
+    """
+    # Only document type/number for non-contributors and non-B2F operations
+    if es_contribuyente or tipo_operacion == 4:
+        return None, None
+
+    documento_tipo = None
     documento_numero = customer.tax_id or customer_name if customer else customer_name
-    
+
     if customer and customer.sifen_tipo_documento:
         tipo_doc_str = str(customer.sifen_tipo_documento).strip()
         if '|' in tipo_doc_str:
@@ -174,8 +274,8 @@ def _get_documento_data(customer, customer_name):
         try:
             documento_tipo = int(tipo_doc_str)
         except (ValueError, TypeError):
-            documento_tipo = 1
-    
+            documento_tipo = None
+
     return documento_tipo, documento_numero
 
 

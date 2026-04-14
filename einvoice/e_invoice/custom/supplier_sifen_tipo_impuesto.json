@@ -1,0 +1,24 @@
+{
+  "doctype": "Custom Field",
+  "custom_fields": [
+    {
+      "dt": "Supplier",
+      "fieldname": "sifen_tipo_impuesto",
+      "fieldtype": "Select",
+      "label": "SIFEN Tipo Impuesto",
+      "insert_after": "sifen_tipo_documento",
+      "module": "E-Invoice",
+      "description": "Tipo de impuesto según SIFEN D013: 1=IVA, 2=ISC, 3=Renta, 4=Ninguno, 5=IVA-Renta",
+      "no_copy": 0,
+      "print_hide": 0,
+      "report_hide": 0,
+      "reqd": 0,
+      "search_index": 0,
+      "translatable": 0,
+      "options": "\n1|IVA (proveedor local contribuyente)\n2|ISC (productos con impuesto selectivo)\n3|Renta (proveedor extranjero B2F con RUC)\n4|Ninguno (proveedor extranjero sin RUC, consumidor final)\n5|IVA - Renta (mixto)"
+    }
+  ],
+  "property_setters": [],
+  "custom_perms": [],
+  "links": []
+}

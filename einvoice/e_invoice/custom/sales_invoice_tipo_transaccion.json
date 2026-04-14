@@ -1,0 +1,32 @@
+{
+  "doctype": "Custom Field",
+  "custom_fields": [
+    {
+      "dt": "Sales Invoice",
+      "fieldname": "sifen_tipo_transaccion_section",
+      "fieldtype": "Section Break",
+      "label": "SIFEN Tipo Transacción",
+      "insert_after": "is_debit_note",
+      "module": "E-Invoice"
+    },
+    {
+      "dt": "Sales Invoice",
+      "fieldname": "sifen_tipo_transaccion",
+      "fieldtype": "Select",
+      "label": "Tipo de Transacción",
+      "insert_after": "sifen_tipo_transaccion_section",
+      "module": "E-Invoice",
+      "description": "Tipo de transacción según SIFEN",
+      "no_copy": 0,
+      "print_hide": 0,
+      "report_hide": 0,
+      "reqd": 1,
+      "search_index": 0,
+      "translatable": 0,
+      "options": "\n1|Venta de mercadería\n2|Prestación de servicios\n3|Mixto\n4|Venta de activo fijo\n5|Venta de divisas\n6|Compra de divisas\n7|Promoción o muestra\n8|Donación\n9|Anticipo\n10|Compra de productos\n11|Compra de servicios\n12|Venta de crédito fiscal"
+    }
+  ],
+  "property_setters": [],
+  "custom_perms": [],
+  "links": []
+}

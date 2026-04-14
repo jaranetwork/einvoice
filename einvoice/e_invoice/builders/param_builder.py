@@ -29,10 +29,10 @@ def build_param_section(company, establecimiento):
     address_data = get_company_address(company.name)
 
     # Get email from company
-    email = getattr(company, 'email', None) or getattr(company, 'email_id', '') or ''
+    email = getattr(company, 'email', None) or getattr(company, 'email_id', '')
     
     # Parse tipo_contribuyente (format: "1|Persona Física" → 1)
-    tipo_contribuyente_raw = getattr(company, 'tipo_contribuyente', '1') or '1'
+    tipo_contribuyente_raw = getattr(company, 'tipo_contribuyente', '1')
     tipo_contribuyente_str = str(tipo_contribuyente_raw).split('|')[0].strip() if '|' in str(tipo_contribuyente_raw) else str(tipo_contribuyente_raw)
     try:
         tipo_contribuyente = int(tipo_contribuyente_str)
@@ -40,7 +40,7 @@ def build_param_section(company, establecimiento):
         tipo_contribuyente = 1
     
     # Parse tipo_regimen (format: "8|Régimen Contable" → 8)
-    tipo_regimen_raw = getattr(company, 'tipo_regimen', '8') or '8'
+    tipo_regimen_raw = getattr(company, 'tipo_regimen', '8')
     tipo_regimen_str = str(tipo_regimen_raw).split('|')[0].strip() if '|' in str(tipo_regimen_raw) else str(tipo_regimen_raw)
     try:
         tipo_regimen = int(tipo_regimen_str)
@@ -49,7 +49,7 @@ def build_param_section(company, establecimiento):
 
     param = {
         "version": 150,
-        "ruc": company.tax_id or "",
+        "ruc": company.tax_id,
         "razonSocial": company.name,
         "nombreFantasia": getattr(company, 'sifen_denominacion', '') or company.name,
         "actividadesEconomicas": actividades_economicas,
@@ -59,18 +59,18 @@ def build_param_section(company, establecimiento):
         "tipoRegimen": tipo_regimen,
         "establecimientos": [{
             "codigo": establecimiento,
-            "denominacion": getattr(company, 'sifen_denominacion', '') or "",
-            "direccion": address_data.get("address_line1") or "",
-            "numeroCasa": address_data.get("sifen_numero_casa") or "1",
-            "complementoDireccion1": address_data.get("address_line1") or "",
-            "complementoDireccion2": address_data.get("address_line2") or "",
+            "denominacion": getattr(company, 'sifen_denominacion', ''),
+            "direccion": address_data.get("address_line1"),
+            "numeroCasa": address_data.get("sifen_numero_casa"),
+            "complementoDireccion1": address_data.get("address_line1"),
+            "complementoDireccion2": address_data.get("address_line2"),
             "departamento": address_data.get("departamento"),
-            "departamentoDescripcion": address_data.get("departamentoDescripcion") or "",
+            "departamentoDescripcion": address_data.get("departamentoDescripcion"),
             "distrito": address_data.get("distrito"),
-            "distritoDescripcion": address_data.get("distritoDescripcion") or "",
+            "distritoDescripcion": address_data.get("distritoDescripcion"),
             "ciudad": address_data.get("ciudad"),
-            "ciudadDescripcion": address_data.get("ciudadDescripcion") or "",
-            "telefono": address_data.get("phone") or "",
+            "ciudadDescripcion": address_data.get("ciudadDescripcion"),
+            "telefono": address_data.get("phone"),
             "email": address_data.get("email_id") or email
         }]
     }

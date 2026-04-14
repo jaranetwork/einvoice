@@ -53,7 +53,7 @@ def get_timbrado_info(company):
         company_doc = frappe.get_doc("Company", company) if isinstance(company, str) else company
 
         if hasattr(company_doc, 'numero_timbrado'):
-            timbrado["numero_timbrado"] = company_doc.numero_timbrado or ""
+            timbrado["numero_timbrado"] = company_doc.numero_timbrado
 
         if hasattr(company_doc, 'fecha_timbrado') and company_doc.fecha_timbrado:
             # Convert date object to string for JSON serialization

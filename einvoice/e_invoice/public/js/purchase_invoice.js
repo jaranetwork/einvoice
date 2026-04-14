@@ -1,28 +1,40 @@
-// Combined script for Sales Invoice - includes both custom buttons and E-Invoice Records tab
-frappe.ui.form.on('Sales Invoice', {
+// Purchase Invoice E-Invoice functionality (autofactura)
+frappe.ui.form.on('Purchase Invoice', {
     refresh(frm) {
         // Show/hide SIFEN motivo field based on is_return or is_debit_note
-        frm.toggle_display('sifen_motivo_nota_credito_debito',
-            frm.doc.is_return || frm.doc.is_debit_note);
+        if (frm.fields_dict.sifen_motivo_nota_credito_debito) {
+            frm.toggle_display('sifen_motivo_nota_credito_debito',
+                frm.doc.is_return || frm.doc.is_debit_note);
+        }
 
         // Show/hide CDC field based on is_return or is_debit_note
-        frm.toggle_display('sifen_cdc_factura_original',
-            frm.doc.is_return || frm.doc.is_debit_note);
+        if (frm.fields_dict.sifen_cdc_factura_original) {
+            frm.toggle_display('sifen_cdc_factura_original',
+                frm.doc.is_return || frm.doc.is_debit_note);
+        }
 
         // Make fields required if is_return or is_debit_note
         if (frm.doc.is_return || frm.doc.is_debit_note) {
-            frm.set_df_property('sifen_motivo_nota_credito_debito', 'reqd', 1);
-            frm.set_df_property('sifen_cdc_factura_original', 'reqd', 1);
+            if (frm.fields_dict.sifen_motivo_nota_credito_debito) {
+                frm.set_df_property('sifen_motivo_nota_credito_debito', 'reqd', 1);
+            }
+            if (frm.fields_dict.sifen_cdc_factura_original) {
+                frm.set_df_property('sifen_cdc_factura_original', 'reqd', 1);
+            }
         } else {
-            frm.set_df_property('sifen_motivo_nota_credito_debito', 'reqd', 0);
-            frm.set_df_property('sifen_cdc_factura_original', 'reqd', 0);
+            if (frm.fields_dict.sifen_motivo_nota_credito_debito) {
+                frm.set_df_property('sifen_motivo_nota_credito_debito', 'reqd', 0);
+            }
+            if (frm.fields_dict.sifen_cdc_factura_original) {
+                frm.set_df_property('sifen_cdc_factura_original', 'reqd', 0);
+            }
         }
 
         // Add a button to generate e-invoice manually
-        if (!frm.doc.__islocal && frm.doc.docstatus === 1) {
+        if (!frm.doc.__islocal) {
             frm.add_custom_button(__('Generate E-Invoice'), () => {
                 frappe.call({
-                    method: 'einvoice.e_invoice.doc_events.sales_invoice.trigger_einvoice_generation',
+                    method: 'einvoice.e_invoice.doc_events.purchase_invoice.trigger_einvoice_generation',
                     args: {
                         invoice_name: frm.doc.name
                     },
@@ -45,10 +57,10 @@ frappe.ui.form.on('Sales Invoice', {
         }
 
         // Add a button to force refresh e-invoice status from SIFEN API
-        if (!frm.doc.__islocal && frm.doc.docstatus === 1) {
+        if (!frm.doc.__islocal) {
             frm.add_custom_button(__('🔄 Refresh Status'), () => {
                 frappe.call({
-                    method: 'einvoice.e_invoice.doc_events.sales_invoice.force_refresh_einvoice_status',
+                    method: 'einvoice.e_invoice.doc_events.purchase_invoice.force_refresh_einvoice_status',
                     args: {
                         invoice_name: frm.doc.name
                     },
@@ -63,14 +75,13 @@ frappe.ui.form.on('Sales Invoice', {
 
         // Add a button to regenerate E-Invoice (extract fresh data and resend)
         // Only visible for Administrator role
-        if (!frm.doc.__islocal && frm.doc.docstatus === 1 && frappe.user.has_role('Administrator')) {
+        if (!frm.doc.__islocal && frappe.user.has_role('Administrator')) {
             frm.add_custom_button(__('⚠️ Regenerate and Send'), () => {
                 frappe.confirm(
                     __('This will extract all data again from the invoice fields and resend to SIFEN API.<br/><br/>Are you sure you want to continue?'),
                     () => {
-                        // User confirmed
                         frappe.call({
-                            method: 'einvoice.e_invoice.doc_events.sales_invoice.generate_einvoice_manually_button',
+                            method: 'einvoice.e_invoice.doc_events.purchase_invoice.generate_einvoice_manually_button',
                             args: {
                                 invoice_name: frm.doc.name,
                                 regenerate: true
@@ -92,12 +103,10 @@ frappe.ui.form.on('Sales Invoice', {
 
         // Add download buttons for XML and KUDE if factura_id exists
         if (frm.doc.custom_sifen_factura_id && !frm.doc.__islocal) {
-            // Download XML button
             frm.add_custom_button(__('Download XML'), () => {
                 download_einvoice_file(frm, 'xml');
             }, __('E-Invoice'));
 
-            // Download KUDE button
             frm.add_custom_button(__('Download KUDE'), () => {
                 download_einvoice_file(frm, 'kude');
             }, __('E-Invoice'));
@@ -107,7 +116,7 @@ frappe.ui.form.on('Sales Invoice', {
         if (!frm.doc.__islocal) {
             frm.add_custom_button(__('👁️ Vista Previa HTML'), () => {
                 frappe.call({
-                    method: 'einvoice.e_invoice.doc_events.sales_invoice.get_einvoice_preview_html',
+                    method: 'einvoice.e_invoice.doc_events.purchase_invoice.get_einvoice_preview_html',
                     args: {
                         invoice_name: frm.doc.name
                     },
@@ -149,7 +158,7 @@ frappe.ui.form.on('Sales Invoice', {
                 }
 
                 frappe.call({
-                    method: 'einvoice.e_invoice.doc_events.sales_invoice.get_einvoice_status',
+                    method: 'einvoice.e_invoice.doc_events.purchase_invoice.get_einvoice_status',
                     args: {
                         invoice_name: frm.doc.name
                     },
@@ -168,20 +177,6 @@ frappe.ui.form.on('Sales Invoice', {
                     }
                 });
             }, __('E-Invoice'));
-        }
-    },
-
-    is_pos(frm) {
-        // When "Include Payment (POS)" is checked, uncheck "Es Factura Crédito"
-        if (frm.doc.is_pos) {
-            frm.set_value('es_factura_credito', 0);
-        }
-    },
-
-    es_factura_credito(frm) {
-        // When "Es Factura Crédito" is checked, uncheck "Include Payment (POS)"
-        if (frm.doc.es_factura_credito) {
-            frm.set_value('is_pos', 0);
         }
     }
 });
@@ -205,7 +200,6 @@ function download_einvoice_file(frm, type) {
         indicator: 'blue'
     });
 
-    // Call server-side method to download file using factura_id directly
     frappe.call({
         method: 'einvoice.e_invoice.utils.api_client.download_sifen_file',
         args: {
@@ -215,7 +209,6 @@ function download_einvoice_file(frm, type) {
         },
         callback: function(r) {
             if (r.message) {
-                // Create blob from base64 content
                 const byteCharacters = atob(r.message.file_content);
                 const byteNumbers = new Array(byteCharacters.length);
                 for (let i = 0; i < byteCharacters.length; i++) {
@@ -224,7 +217,6 @@ function download_einvoice_file(frm, type) {
                 const byteArray = new Uint8Array(byteNumbers);
                 const blob = new Blob([byteArray], { type: r.message.content_type });
 
-                // Create download link
                 const url = window.URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;

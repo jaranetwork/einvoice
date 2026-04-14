@@ -68,16 +68,14 @@ def _build_item_data(item, sales_invoice, moneda):
     # Get country of origin
     pais_item, pais_descripcion = _get_pais_item(item_details)
     
-    return {
+    item = {
         "codigo": item.item_code,
-        "descripcion": item.item_name or "Sin descripcion",
+        "descripcion": item.item_name,
         "observacion": "",
         "unidadMedida": unidad_medida,
         "cantidad": abs(item.qty) if _is_credit_debit_note(sales_invoice) else item.qty,
         "precioUnitario": precio_unitario,
-        "cambio": cambio_item,
-        "descuento": descuento_item,
-        "anticipo": 0,  # ERPNext doesn't track advances at item level
+       # "anticipo": 0,    ERPNext doesn't track advances at item level
         "pais": pais_item,
         "paisDescripcion": pais_descripcion,
         "ivaTipo": iva_tipo,
@@ -85,6 +83,15 @@ def _build_item_data(item, sales_invoice, moneda):
         "iva": iva
     }
 
+    # Add cambio section if applicable
+    if cambio_item is not None:
+        item["cambio"] = cambio_item
+    
+    # Add descuento section if applicable
+    if descuento_item > 0:
+        item["descuento"] = descuento_item
+
+    return item
 
 def _get_item_tax_template(item, item_details):
     """Get item tax template from item or item master."""
@@ -111,16 +118,27 @@ def _get_iva_rate(iva_tipo, iva_tasa):
     return 0  # ISC, Exento, Ninguno
 
 
-def _get_cambio_item(moneda, sales_invoice):
-    """Get exchange rate for item."""
+def _get_cambio_item(moneda, doc):
+    """Get exchange rate for item from Currency Exchange or invoice conversion_rate."""
     if moneda == "PYG":
-        return 0
-    
-    if hasattr(sales_invoice, 'conversion_rate') and sales_invoice.conversion_rate:
-        if sales_invoice.conversion_rate > 1:
-            return sales_invoice.conversion_rate
-    
-    return 0
+        return None
+
+    # Method 1: Try Currency Exchange from ERPNext
+    if moneda != "PYG":
+        exchange_rate = frappe.db.get_value(
+            "Currency Exchange",
+            {"from_currency": moneda, "to_currency": "PYG"},
+            "exchange_rate"
+        )
+        if exchange_rate:
+            return float(exchange_rate)
+
+    # Method 2: Fallback to invoice conversion_rate
+    if hasattr(doc, 'conversion_rate') and doc.conversion_rate:
+        if doc.conversion_rate > 1:
+            return float(doc.conversion_rate)
+
+    return None
 
 
 def _get_descuento_item(item, moneda):

@@ -1,0 +1,25 @@
+{
+  "doctype": "Custom Field",
+  "custom_fields": [
+    {
+      "dt": "E-Invoice Setting",
+      "fieldname": "tipo_emision",
+      "fieldtype": "Select",
+      "label": "Tipo de Emisión",
+      "insert_after": "api_key",
+      "module": "E-Invoice",
+      "description": "1 = Normal, 2 = Contingencia (cuando el sistema no puede conectarse a SIFEN)",
+      "no_copy": 0,
+      "print_hide": 0,
+      "report_hide": 0,
+      "reqd": 0,
+      "search_index": 0,
+      "translatable": 0,
+      "options": "1|Normal\n2|Contingencia",
+      "default": "1"
+    }
+  ],
+  "property_setters": [],
+  "custom_perms": [],
+  "links": []
+}

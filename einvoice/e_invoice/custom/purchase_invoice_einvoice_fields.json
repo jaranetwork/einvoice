@@ -1,0 +1,110 @@
+{
+  "doctype": "Custom Field",
+  "custom_fields": [
+    {
+      "dt": "Purchase Invoice",
+      "fieldname": "custom_einvoice_section",
+      "fieldtype": "Tab Break",
+      "label": "E-Invoice",
+      "insert_after": "connections_tab",
+      "module": "E-Invoice"
+    },
+    {
+      "dt": "Purchase Invoice",
+      "fieldname": "custom_einvoice_generated",
+      "fieldtype": "Check",
+      "label": "E-Invoice Generated",
+      "insert_after": "custom_einvoice_section",
+      "module": "E-Invoice",
+      "no_copy": 1,
+      "read_only": 1
+    },
+    {
+      "dt": "Purchase Invoice",
+      "fieldname": "custom_einvoice_generated_date",
+      "fieldtype": "Datetime",
+      "label": "E-Invoice Generated Date",
+      "insert_after": "custom_einvoice_generated",
+      "module": "E-Invoice",
+      "no_copy": 1,
+      "read_only": 1
+    },
+    {
+      "dt": "Purchase Invoice",
+      "fieldname": "custom_sifen_factura_id",
+      "fieldtype": "Data",
+      "label": "FEPY Factura ID",
+      "insert_after": "custom_einvoice_generated_date",
+      "module": "E-Invoice",
+      "no_copy": 1,
+      "read_only": 1,
+      "description": "ID de factura del sistema FEPY"
+    },
+    {
+      "dt": "Purchase Invoice",
+      "fieldname": "custom_sifen_correlativo",
+      "fieldtype": "Data",
+      "label": "SIFEN Correlativo",
+      "insert_after": "custom_sifen_factura_id",
+      "module": "E-Invoice",
+      "no_copy": 1,
+      "read_only": 1
+    },
+    {
+      "dt": "Purchase Invoice",
+      "fieldname": "custom_sifen_estado",
+      "fieldtype": "Data",
+      "label": "FEPY Estado",
+      "insert_after": "custom_sifen_correlativo",
+      "module": "E-Invoice",
+      "no_copy": 1,
+      "read_only": 1,
+      "description": "Estado actual en el sistema FEPY"
+    },
+    {
+      "dt": "Purchase Invoice",
+      "fieldname": "custom_sifen_cdc",
+      "fieldtype": "Data",
+      "label": "SIFEN CDC",
+      "insert_after": "custom_sifen_estado",
+      "module": "E-Invoice",
+      "no_copy": 1,
+      "read_only": 1
+    },
+    {
+      "dt": "Purchase Invoice",
+      "fieldname": "custom_numero_control",
+      "fieldtype": "Data",
+      "label": "Número de Control",
+      "insert_after": "custom_sifen_cdc",
+      "module": "E-Invoice",
+      "no_copy": 1,
+      "read_only": 1,
+      "description": "Código de seguridad aleatorio de 9 dígitos para SIFEN"
+    },
+    {
+      "dt": "Purchase Invoice",
+      "fieldname": "custom_einvoice_json_section",
+      "fieldtype": "Section Break",
+      "label": "E-Invoice JSON (Debug)",
+      "insert_after": "custom_numero_control",
+      "module": "E-Invoice",
+      "collapsible": 1
+    },
+    {
+      "dt": "Purchase Invoice",
+      "fieldname": "custom_einvoice_json",
+      "fieldtype": "Code",
+      "label": "E-Invoice JSON Data",
+      "insert_after": "custom_einvoice_json_section",
+      "module": "E-Invoice",
+      "no_copy": 1,
+      "read_only": 1,
+      "options": "JSON",
+      "description": "JSON completo enviado a SIFEN (solo para revisión técnica)"
+    }
+  ],
+  "property_setters": [],
+  "custom_perms": [],
+  "links": []
+}

@@ -20,23 +20,62 @@ def validate_payment_sifen_fields(doc, is_pos_invoice, customer_country):
         list: List of error messages
     """
     errors = []
-    
+
     # Skip validation for Credit Notes
     is_return = hasattr(doc, 'is_return') and doc.is_return
     if is_return:
         return errors
-    
+
+    # Validate "Es Factura Crédito" requires payment terms with plazo
+    if hasattr(doc, 'es_factura_credito') and doc.es_factura_credito:
+        credito_errors = _validate_factura_credito_payments(doc)
+        errors.extend(credito_errors)
+
     if is_pos_invoice:
         pos_errors = _validate_pos_payments(doc)
         errors.extend(pos_errors)
     else:
         normal_errors = _validate_normal_payments(doc)
         errors.extend(normal_errors)
-    
+
     # Validate credit days for credit operations
     credit_errors = _validate_credit_days(doc, customer_country)
     errors.extend(credit_errors)
-    
+
+    return errors
+
+
+def _validate_factura_credito_payments(doc):
+    """
+    Validate that 'Es Factura Crédito' has payment terms with payment period (plazo).
+    Each term in payment_schedule must have credit_days > 0.
+    """
+    errors = []
+
+    # Skip validation for new documents
+    if doc.is_new():
+        return errors
+
+    if not hasattr(doc, 'payment_schedule') or not doc.payment_schedule:
+        errors.append(
+            _("Es Factura Crédito requires payment terms with a payment period.<br><br>"
+              "Please add at least one Payment Term with 'Credit Days' > 0 in the Payment Schedule table.")
+        )
+        return errors
+
+    has_valid_plazo = False
+    for term in doc.payment_schedule:
+        credit_days = term.credit_days if hasattr(term, 'credit_days') else None
+        if credit_days and int(credit_days) > 0:
+            has_valid_plazo = True
+            break
+
+    if not has_valid_plazo:
+        errors.append(
+            _("Es Factura Crédito requires at least one payment term with 'Credit Days' > 0.<br><br>"
+              "Please add a payment term with a payment period in the Payment Schedule table.")
+        )
+
     return errors
 
 

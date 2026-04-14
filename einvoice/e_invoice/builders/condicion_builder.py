@@ -94,12 +94,12 @@ CARD_TYPE_MAP = {
 }
 
 
-def build_condicion_section(sales_invoice, moneda="PYG", condicion_tipo_cambio=1):
+def build_condicion_section(doc, moneda="PYG", condicion_tipo_cambio=1):
     """
     Build the 'condicion' section with payment conditions.
 
     Args:
-        sales_invoice: Sales Invoice document
+        doc: Sales Invoice or Purchase Invoice document
         moneda: Currency code
         condicion_tipo_cambio: Exchange rate condition
 
@@ -108,10 +108,10 @@ def build_condicion_section(sales_invoice, moneda="PYG", condicion_tipo_cambio=1
     """
     # Get operation type (Contado vs Crédito)
     from ..utils.utils import get_condicion_operacion
-    condicion_operacion = get_condicion_operacion(sales_invoice)
+    condicion_operacion = get_condicion_operacion(doc)
 
     # Build entregas (payment schedule)
-    entregas = _build_entregas(sales_invoice, moneda, condicion_tipo_cambio)
+    entregas = _build_entregas(doc, moneda)
 
     # Build condicion object
     condicion = {
@@ -121,28 +121,39 @@ def build_condicion_section(sales_invoice, moneda="PYG", condicion_tipo_cambio=1
 
     # Add credit info if credit operation
     if condicion_operacion == 2:
-        credito_info = _build_credito_info(sales_invoice)
+        credito_info = _build_credito_info(doc)
         if credito_info:
             condicion["credito"] = credito_info
 
     return condicion
 
 
-def _build_entregas(sales_invoice, moneda, condicion_tipo_cambio):
+def _build_entregas(doc, moneda):
     """
     Build entregas array from payment schedule and linked Payment Entries.
     Maps ERPNext payment modes to SIFEN payment types.
-    
+
     Priority:
     1. POS payments table (for POS invoices)
     2. Advances (linked Payment Entries)
     3. Payment Schedule (for credit invoices)
     """
+    # Get exchange rate from Currency Exchange
+    cambio_valor = 0
+    if moneda != "PYG":
+        cambio_valor = frappe.db.get_value(
+            "Currency Exchange",
+            {"from_currency": moneda, "to_currency": "PYG"},
+            "exchange_rate"
+        )
+        if not cambio_valor and hasattr(doc, 'conversion_rate') and doc.conversion_rate:
+            cambio_valor = doc.conversion_rate
+
     entregas = []
 
     # 1. Check payments table FIRST (for POS invoices)
-    if hasattr(sales_invoice, 'payments') and sales_invoice.payments:
-        for payment in sales_invoice.payments:
+    if hasattr(doc, 'payments') and doc.payments:
+        for payment in doc.payments:
             if payment.amount and payment.amount > 0:
                 payment_mode = payment.mode_of_payment
                 sifen_tipo = _get_sifen_payment_type(payment_mode)
@@ -151,7 +162,7 @@ def _build_entregas(sales_invoice, moneda, condicion_tipo_cambio):
                     "tipo": sifen_tipo,
                     "monto": str(abs(float(payment.amount))),
                     "moneda": moneda,
-                    "cambio": condicion_tipo_cambio if moneda != "PYG" else 0
+                    "cambio": cambio_valor if moneda != "PYG" else 0
                 }
 
                 # Add additional info for specific payment types
@@ -168,8 +179,8 @@ def _build_entregas(sales_invoice, moneda, condicion_tipo_cambio):
                 entregas.append(entrega)
 
     # 2. Check if invoice has advances (already paid)
-    if hasattr(sales_invoice, 'advances') and sales_invoice.advances:
-        for advance in sales_invoice.advances:
+    if hasattr(doc, 'advances') and doc.advances:
+        for advance in doc.advances:
             if advance.allocated_amount and advance.allocated_amount > 0:
                 # Get mode of payment from linked Payment Entry
                 payment_mode = _get_payment_mode_from_pe(advance.reference_name)
@@ -179,27 +190,27 @@ def _build_entregas(sales_invoice, moneda, condicion_tipo_cambio):
                     "tipo": sifen_tipo,
                     "monto": str(abs(float(advance.allocated_amount))),
                     "moneda": moneda,
-                    "cambio": condicion_tipo_cambio if moneda != "PYG" else 0
+                    "cambio": cambio_valor if moneda != "PYG" else 0
                 }
                 entregas.append(entrega)
 
     # 3. Check payment schedule with payment terms (for credit invoices)
-    if hasattr(sales_invoice, 'payment_schedule') and sales_invoice.payment_schedule:
-        for term in sales_invoice.payment_schedule:
+    if hasattr(doc, 'payment_schedule') and doc.payment_schedule:
+        for term in doc.payment_schedule:
             if term.payment_amount and term.payment_amount > 0:
                 # Skip if already added as advance
                 if _is_advance_already_added(term, entregas):
                     continue
 
                 # Get payment mode from linked Payment Entry or invoice
-                payment_mode = _get_payment_mode_from_pe_for_term(sales_invoice, term)
+                payment_mode = _get_payment_mode_from_pe_for_term(doc, term)
                 sifen_tipo = _get_sifen_payment_type(payment_mode)
 
                 entrega = {
                     "tipo": sifen_tipo,
                     "monto": str(abs(float(term.payment_amount))),
                     "moneda": moneda,
-                    "cambio": condicion_tipo_cambio if moneda != "PYG" else 0
+                    "cambio": cambio_valor if moneda != "PYG" else 0
                 }
 
                 # Add additional info for specific payment types
@@ -463,7 +474,6 @@ def _build_credito_info(sales_invoice):
     credito_info = {
         "tipo": 1,  # Default: Plazo
         "plazo": "",
-        "dDCondCred": "Plazo"
     }
 
     # Try to get days from payment terms

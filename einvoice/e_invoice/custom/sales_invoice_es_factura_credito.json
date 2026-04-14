@@ -3,12 +3,12 @@
   "custom_fields": [
     {
       "dt": "Sales Invoice",
-      "fieldname": "incluir_pago_despues_validar",
+      "fieldname": "es_factura_credito",
       "fieldtype": "Check",
-      "label": "Incluir Pago Después de Validar",
+      "label": "Es Factura Crédito",
       "insert_after": "is_pos",
       "module": "E-Invoice",
-      "description": "Los pagos se registrarán después de validar la factura. Sólo para facturas al contado.",
+      "description": "Los términos de pago deberán tener un plazo de pago",
       "no_copy": 0,
       "print_hide": 1,
       "report_hide": 0,

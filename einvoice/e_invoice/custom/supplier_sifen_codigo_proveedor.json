@@ -1,0 +1,24 @@
+{
+  "doctype": "Custom Field",
+  "custom_fields": [
+    {
+      "dt": "Supplier",
+      "fieldname": "sifen_codigo_proveedor",
+      "fieldtype": "Data",
+      "label": "Código de Proveedor",
+      "insert_after": "supplier_name",
+      "module": "E-Invoice",
+      "description": "Código único del proveedor para SIFEN (se autogenera como SUPP-YYYY-#####)",
+      "no_copy": 0,
+      "print_hide": 1,
+      "report_hide": 0,
+      "reqd": 0,
+      "search_index": 1,
+      "translatable": 0,
+      "read_only": 1
+    }
+  ],
+  "property_setters": [],
+  "custom_perms": [],
+  "links": []
+}

@@ -25,11 +25,13 @@ def validate_customer_sifen_fields(doc, customer_data, customer_country, tipo_op
     if not customer_data:
         return errors
     
-    # Validate SIFEN Document Type
+    # Validate SIFEN Document Type (only required if customer is NOT a contributor)
+    is_contribuyente = customer_data.get('sifen_contribuyente', False)
     customer_sifen_tipo_documento = customer_data.get('sifen_tipo_documento', '')
-    if not customer_sifen_tipo_documento:
+
+    if not is_contribuyente and not customer_sifen_tipo_documento:
         errors.append(_("SIFEN Document Type is empty for customer {0}").format(doc.customer))
-    else:
+    elif customer_sifen_tipo_documento:
         _validate_tipo_documento(errors, doc, customer_sifen_tipo_documento, tipo_operacion)
     
     # Validate SIFEN Tax Type

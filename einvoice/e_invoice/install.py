@@ -317,39 +317,55 @@ def create_unique_index_on_numero_control():
     """Create unique index on custom_numero_control + company for fast lookup."""
     print("\nCreating unique index on custom_numero_control + company...")
 
+    # Create index for Sales Invoice
     try:
-        # Check if index already exists
         existing_indexes = frappe.db.sql("""
             SHOW INDEX FROM `tabSales Invoice`
             WHERE Key_name = 'idx_company_numero_control'
         """, as_dict=True)
 
         if existing_indexes:
-            print("Index idx_company_numero_control already exists")
-            return
+            print("Index idx_company_numero_control already exists in Sales Invoice")
+        else:
+            old_indexes = frappe.db.sql("""
+                SHOW INDEX FROM `tabSales Invoice`
+                WHERE Key_name = 'idx_custom_numero_control'
+            """, as_dict=True)
 
-        # Drop old index if exists (from previous version)
-        old_indexes = frappe.db.sql("""
-            SHOW INDEX FROM `tabSales Invoice`
-            WHERE Key_name = 'idx_custom_numero_control'
-        """, as_dict=True)
+            if old_indexes:
+                frappe.db.sql("""
+                    ALTER TABLE `tabSales Invoice`
+                    DROP INDEX `idx_custom_numero_control`
+                """)
+                print("Dropped old index: idx_custom_numero_control")
 
-        if old_indexes:
             frappe.db.sql("""
                 ALTER TABLE `tabSales Invoice`
-                DROP INDEX `idx_custom_numero_control`
+                ADD UNIQUE INDEX `idx_company_numero_control` (`company`, `custom_numero_control`)
             """)
-            print("Dropped old index: idx_custom_numero_control")
-
-        # Create composite unique index (company + numero_control)
-        frappe.db.sql("""
-            ALTER TABLE `tabSales Invoice`
-            ADD UNIQUE INDEX `idx_company_numero_control` (`company`, `custom_numero_control`)
-        """)
-        frappe.db.commit()
-        print("Created unique index: idx_company_numero_control (company, custom_numero_control)")
+            frappe.db.commit()
+            print("Created unique index: idx_company_numero_control in Sales Invoice")
     except Exception as e:
-        print(f"Note: {e}")
+        print(f"Note (Sales Invoice): {e}")
+
+    # Create index for Purchase Invoice
+    try:
+        existing_indexes = frappe.db.sql("""
+            SHOW INDEX FROM `tabPurchase Invoice`
+            WHERE Key_name = 'idx_company_numero_control'
+        """, as_dict=True)
+
+        if existing_indexes:
+            print("Index idx_company_numero_control already exists in Purchase Invoice")
+        else:
+            frappe.db.sql("""
+                ALTER TABLE `tabPurchase Invoice`
+                ADD UNIQUE INDEX `idx_company_numero_control` (`company`, `custom_numero_control`)
+            """)
+            frappe.db.commit()
+            print("Created unique index: idx_company_numero_control in Purchase Invoice")
+    except Exception as e:
+        print(f"Note (Purchase Invoice): {e}")
 
 
 def create_sifen_tax_type_field_in_item_tax_template():
@@ -414,10 +430,12 @@ def before_uninstall():
         "sifen_responsable", "custom_einvoice", "custom_sifen",
         "codigo_punto_expedicion", "btn_buscar", "sifen_campos_obligatorios",
         "sifen_column", "sifen_denominacion", "custom_einvoice_section",
-        "sifen_tipo_iva"  # Item Tax Template Detail field (ivaTipo 1-4)
+        "sifen_tipo_iva", "sifen_codigo_proveedor", "sifen_tipo_contribuyente",
+        "sifen_tipo_transaccion", "sifen_tipo_transaccion_section",
+        "es_factura_credito"
     ]
 
-    for doctype in ["Company", "Address", "Sales Invoice", "POS Profile", "Item Tax Template Detail"]:
+    for doctype in ["Company", "Address", "Sales Invoice", "Purchase Invoice", "Customer", "Supplier", "POS Profile", "Item Tax Template Detail"]:
         fields = frappe.get_all(
             "Custom Field",
             filters={"dt": doctype},
@@ -436,7 +454,7 @@ def before_uninstall():
                     print(f"Error deleting {field['name']}: {e}")
 
     # Delete all property setters for Company and Address
-    for doctype in ["Company", "Address", "Sales Invoice", "POS Profile"]:
+    for doctype in ["Company", "Address", "Sales Invoice", "Purchase Invoice", "Customer", "Supplier", "POS Profile"]:
         property_setters = frappe.get_all(
             "Property Setter",
             filters={"doc_type": doctype},
@@ -476,28 +494,38 @@ def before_uninstall():
 def drop_unique_index_on_numero_control():
     """Drop unique index on custom_numero_control + company during uninstall."""
     print("\nDropping unique index on custom_numero_control...")
-    
+
+    # Drop index from Sales Invoice
     try:
-        # Drop composite index (company + numero_control)
         frappe.db.sql("""
             ALTER TABLE `tabSales Invoice`
             DROP INDEX `idx_company_numero_control`
         """)
         frappe.db.commit()
-        print("Dropped unique index: idx_company_numero_control")
+        print("Dropped unique index: idx_company_numero_control in Sales Invoice")
     except Exception as e:
-        print(f"Note: {e}")
-        
+        print(f"Note (Sales Invoice): {e}")
+
     try:
-        # Also try to drop old index if exists (from previous version)
         frappe.db.sql("""
             ALTER TABLE `tabSales Invoice`
             DROP INDEX `idx_custom_numero_control`
         """)
         frappe.db.commit()
-        print("Dropped old index: idx_custom_numero_control (if existed)")
+        print("Dropped old index: idx_custom_numero_control in Sales Invoice (if existed)")
     except Exception as e:
-        pass  # Ignore if doesn't exist
+        pass
+
+    # Drop index from Purchase Invoice
+    try:
+        frappe.db.sql("""
+            ALTER TABLE `tabPurchase Invoice`
+            DROP INDEX `idx_company_numero_control`
+        """)
+        frappe.db.commit()
+        print("Dropped unique index: idx_company_numero_control in Purchase Invoice")
+    except Exception as e:
+        print(f"Note (Purchase Invoice): {e}")
 
 
 if __name__ == "__main__":

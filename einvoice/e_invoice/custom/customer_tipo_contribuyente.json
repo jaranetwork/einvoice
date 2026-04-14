@@ -3,19 +3,19 @@
   "custom_fields": [
     {
       "dt": "Customer",
-      "fieldname": "sifen_tipo_documento",
+      "fieldname": "sifen_tipo_contribuyente",
       "fieldtype": "Select",
-      "label": "SIFEN Tipo Documento",
+      "label": "SIFEN Tipo Contribuyente",
       "insert_after": "sifen_contribuyente",
       "module": "E-Invoice",
-      "description": "Tipo de documento de identidad del cliente según SIFEN. El RUC se almacena en el campo Tax ID.",
+      "description": "Tipo de contribuyente según SIFEN: 1=Persona Física, 2=Persona Jurídica",
       "no_copy": 0,
       "print_hide": 0,
       "report_hide": 0,
       "reqd": 0,
       "search_index": 0,
       "translatable": 0,
-      "options": "\n1|Cédula paraguaya\n2|Pasaporte\n3|Cédula extranjera\n4|Carnet de residencia\n5|Innominado\n6|Tarjeta Diplomática de exoneración fiscal\n9|No especificado"
+      "options": "\n1|Persona Física\n2|Persona Jurídica"
     }
   ],
   "property_setters": [],

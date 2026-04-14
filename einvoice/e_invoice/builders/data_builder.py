@@ -11,7 +11,6 @@ from ..helpers import (
     get_sifen_tipo_impuesto
 )
 from ..utils.utils import (
-    get_tipo_transaccion,
     get_indicador_presencia,
     get_condicion_anticipo,
     get_condicion_operacion,
@@ -23,14 +22,15 @@ from .items_builder import build_items_data
 from .condicion_builder import build_condicion_section
 
 
-def build_data_section(sales_invoice, company, establecimiento, punto, numero, fecha=None,
-                       tipo_documento=None, moneda=None, cambio_forzado=None, 
+def build_data_section(doc, company, establecimiento, punto, numero, fecha=None,
+                       tipo_documento=None, moneda=None, cambio_forzado=None,
                        tipo_contribuyente=None, condicion_tipo_cambio=None):
     """
     Build the 'data' section with invoice information.
-    
+    Works with both Sales Invoice and Purchase Invoice.
+
     Args:
-        sales_invoice: Sales Invoice document
+        doc: Sales Invoice or Purchase Invoice document
         company: Company document
         establecimiento: Establishment code
         punto: Expedition point code
@@ -41,68 +41,65 @@ def build_data_section(sales_invoice, company, establecimiento, punto, numero, f
         cambio_forzado: Exchange rate (optional)
         tipo_contribuyente: Contributor type (optional)
         condicion_tipo_cambio: Exchange rate condition (optional)
-    
+
     Returns:
         dict: Data section for SIFEN payload
     """
-    # Get customer details
-    from .cliente_builder import get_customer_details
-    customer, customer_country, address_data, location_codes = get_customer_details(sales_invoice)
+    # Get party (customer/supplier) details
+    from .cliente_builder import get_party_details
+    party, party_country, address_data, location_codes = get_party_details(doc)
     
     # Set defaults
-    moneda = moneda or sales_invoice.currency or "PYG"
-    condicion_tipo_cambio = condicion_tipo_cambio or 1
-    
+    moneda = moneda or doc.currency
+    condicion_tipo_cambio = condicion_tipo_cambio
+
     # Validate currency
-    validar_moneda_sifen(moneda, sales_invoice.name)
-    
+    validar_moneda_sifen(moneda, doc.name)
+
     # Determine document type if not provided
     if tipo_documento is None:
-        tipo_documento = _determine_document_type(sales_invoice)
-    
+        tipo_documento = _determine_document_type(doc)
+
     # Build date if not provided
     if fecha is None:
-        fecha = _build_fecha(sales_invoice)
-    
+        fecha = _build_fecha(doc)
+
     # Build sections
-    cliente = build_cliente_section(sales_invoice, customer, address_data, location_codes, tipo_documento)
-    items = build_items_data(sales_invoice, moneda)
-    condicion = build_condicion_section(sales_invoice, moneda, condicion_tipo_cambio)
-    
+    cliente = build_cliente_section(doc, party, address_data, location_codes, tipo_documento)
+    items = build_items_data(doc, moneda)
+    condicion = build_condicion_section(doc, moneda, condicion_tipo_cambio)
+
     # Get other values
-    usuario = _build_usuario(sales_invoice)
-    factura = _build_factura_metadata(sales_invoice)
-    
+    usuario = _build_usuario(doc)
+    factura = _build_factura_metadata(doc)
+
     # Calculate totals
-    total_pago = sales_invoice.grand_total or 0
-    
+    total_pago = doc.grand_total
+
     # Get control number
-    codigo_seguridad = sales_invoice.custom_numero_control or ""
-    
-    # Get transaction type
-    tipo_transaccion = get_tipo_transaccion(sales_invoice)
-    
+    codigo_seguridad = doc.custom_numero_control
+
     # Get description
     descripcion = _get_documento_descripcion(tipo_documento)
-    
+
     # Get observation
-    observacion = _get_observacion(sales_invoice)
-    
+    observacion = _get_observacion(doc)
+
     # Build notaCreditoDebito section
-    nota_credito_debito = _build_nota_credito_debito(sales_invoice, tipo_documento)
-    
+    nota_credito_debito = _build_nota_credito_debito(doc, tipo_documento)
+
     # Build documentoAsociado section
-    documento_asociado = _build_documento_asociado(sales_invoice, tipo_documento)
-    
+    documento_asociado = _build_documento_asociado(doc, tipo_documento)
+
     # Get advance and discount
-    anticipo_global = sales_invoice.total_advance or 0
-    descuento_global = get_descuento_global(sales_invoice, moneda)
-    
+    anticipo_global = doc.total_advance
+    descuento_global = get_descuento_global(doc, moneda)
+
     # Get operation condition
-    condicion_operacion = get_condicion_operacion(sales_invoice)
-    
+    condicion_operacion = get_condicion_operacion(doc)
+
     # Get tax type
-    tipo_impuesto_code, _ = get_sifen_tipo_impuesto(sales_invoice)
+    tipo_impuesto_code, _ = get_sifen_tipo_impuesto(doc)
     
     # Build data dictionary
     data = {
@@ -114,14 +111,10 @@ def build_data_section(sales_invoice, company, establecimiento, punto, numero, f
         "descripcion": descripcion,
         "observacion": observacion,
         "fecha": fecha,
-        "tipoEmision": 1,
-        "tipoTransaccion": tipo_transaccion,
+        "tipoEmision": _get_tipo_emision(doc),
+        "tipoTransaccion": _get_tipo_transaccion(doc),
         "tipoImpuesto": tipo_impuesto_code,
         "moneda": moneda,
-        "condicionAnticipo": get_condicion_anticipo(sales_invoice),
-        "condicionTipoCambio": condicion_tipo_cambio,
-        "descuentoGlobal": descuento_global,
-        "anticipoGlobal": anticipo_global,
         "cliente": cliente,
         "usuario": usuario,
         "factura": factura,
@@ -129,40 +122,62 @@ def build_data_section(sales_invoice, company, establecimiento, punto, numero, f
         "items": items,
         "totalPago": total_pago
     }
-    
+
+    # Add descuentoGlobal section if applicable
+    if descuento_global > 0:
+        data["descuentoGlobal"] = descuento_global
+
+    # Add condicionAnticipo and anticipoGlobal section if applicable
+    if get_condicion_anticipo(doc) is not None:
+        data["condicionAnticipo"] = get_condicion_anticipo(doc)
+        data["anticipoGlobal"] = anticipo_global
+
     # Add notaCreditoDebito section if applicable
     if nota_credito_debito:
         data["notaCreditoDebito"] = nota_credito_debito
-    
+
     # Add documentoAsociado section if applicable
     if documento_asociado:
         data["documentoAsociado"] = documento_asociado
-    
+        
     # Add credit information if credit operation
     if condicion_operacion == 2:
-        data["condicion"]["credito"] = _get_credito_info(sales_invoice)
-    
+        data["condicion"]["credito"] = _get_credito_info(doc)
+
     # Add exchange rate if not PYG
-    if moneda != "PYG" and cambio_forzado is not None:
-        data["cambio"] = cambio_forzado
-    
+    if moneda != "PYG":
+        data["condicionTipoCambio"] = 1  # 1 = Tipo de cambio global
+        # Get from Currency Exchange first
+        cambio_valor = frappe.db.get_value(
+            "Currency Exchange",
+            {"from_currency": moneda, "to_currency": "PYG"},
+            "exchange_rate"
+        )
+        
+        # Fallback to conversion_rate from doc
+        if not cambio_valor and hasattr(doc, 'conversion_rate') and doc.conversion_rate:
+            cambio_valor = doc.conversion_rate
+        
+        if cambio_valor:
+            data["cambio"] = float(cambio_valor)
+
     return data
 
 
-def _determine_document_type(sales_invoice):
+def _determine_document_type(doc):
     """Determine document type based on invoice fields."""
-    if hasattr(sales_invoice, 'is_return') and sales_invoice.is_return:
+    if hasattr(doc, 'is_return') and doc.is_return:
         return 5  # Nota de Crédito
-    elif hasattr(sales_invoice, 'is_debit_note') and sales_invoice.is_debit_note:
+    elif hasattr(doc, 'is_debit_note') and doc.is_debit_note:
         return 6  # Nota de Débito
     else:
         return 1  # Factura
 
 
-def _build_fecha(sales_invoice):
+def _build_fecha(doc):
     """Build fecha string from posting date and time."""
-    posting_date = sales_invoice.posting_date
-    posting_time = getattr(sales_invoice, 'posting_time', None)
+    posting_date = doc.posting_date
+    posting_time = getattr(doc, 'posting_time', None)
     
     if posting_date:
         posting_date_str = str(posting_date)
@@ -176,16 +191,16 @@ def _build_fecha(sales_invoice):
         return f"{posting_date_str}T00:00:00"
 
 
-def _build_usuario(sales_invoice):
+def _build_usuario(doc):
     """Build usuario section from invoice owner."""
     from ..utils.utils import get_usuario_from_invoice
-    return get_usuario_from_invoice(sales_invoice)
+    return get_usuario_from_invoice(doc)
 
 
-def _build_factura_metadata(sales_invoice):
+def _build_factura_metadata(doc):
     """Build factura metadata section."""
     return {
-        "presencia": get_indicador_presencia(sales_invoice),
+        "presencia": get_indicador_presencia(doc),
         "fechaEnvio": now_datetime().strftime("%Y-%m-%dT%H:%M:%S")
     }
 
@@ -200,20 +215,20 @@ def _get_documento_descripcion(tipo_documento):
         return "Factura electrónica"
 
 
-def _get_observacion(sales_invoice):
+def _get_observacion(doc):
     """Get observation from remarks field."""
-    observacion = sales_invoice.remarks or ""
+    observacion = doc.remarks or ""
     if observacion.lower().strip() in ["no hay observaciones", "sin observaciones", ""]:
         return ""
     return observacion
 
 
-def _build_nota_credito_debito(sales_invoice, tipo_documento):
+def _build_nota_credito_debito(doc, tipo_documento):
     """Build notaCreditoDebito section for NC/ND."""
     if tipo_documento not in [5, 6]:
         return {}
-    
-    motivo = getattr(sales_invoice, 'sifen_motivo_nota_credito_debito', '')
+
+    motivo = getattr(doc, 'sifen_motivo_nota_credito_debito', '')
     
     if motivo:
         motivo_code = str(motivo).split("|")[0].strip() if "|" in str(motivo) else str(motivo).strip()
@@ -225,7 +240,7 @@ def _build_nota_credito_debito(sales_invoice, tipo_documento):
     return {}
 
 
-def _build_documento_asociado(sales_invoice, tipo_documento):
+def _build_documento_asociado(doc, tipo_documento):
     """Build documentoAsociado section for NC/ND."""
     if tipo_documento not in [5, 6]:
         return []
@@ -233,10 +248,11 @@ def _build_documento_asociado(sales_invoice, tipo_documento):
     cdc_original = ""
 
     # Try to get CDC from original invoice
-    if hasattr(sales_invoice, 'return_against') and sales_invoice.return_against:
+    if hasattr(doc, 'return_against') and doc.return_against:
         try:
-            original_invoice = frappe.get_doc("Sales Invoice", sales_invoice.return_against)
-            cdc_original = original_invoice.custom_sifen_cdc or ""
+            original_doctype = doc.doctype
+            original_invoice = frappe.get_doc(original_doctype, doc.return_against)
+            cdc_original = original_invoice.custom_sifen_cdc
         except Exception:
             pass
 
@@ -246,51 +262,52 @@ def _build_documento_asociado(sales_invoice, tipo_documento):
     return []
 
 
-def _get_credito_info(sales_invoice):
+def _get_credito_info(doc):
     """Get credit information from payment terms."""
     from ..utils.utils import get_credito_info
-    return get_credito_info(sales_invoice)
+    return get_credito_info(doc)
 
 
-def prepare_invoice_data(sales_invoice):
+def prepare_invoice_data(doc):
     """
     Prepare complete invoice data for SIFEN API.
     Orchestrates all builders.
+    Works with both Sales Invoice and Purchase Invoice.
 
     Args:
-        sales_invoice: Sales Invoice document
+        doc: Sales Invoice or Purchase Invoice document
 
     Returns:
         dict: Complete payload for SIFEN API
     """
     # Get company and parse invoice number
-    company = frappe.get_doc("Company", sales_invoice.company)
-    establecimiento, punto, numero = _parse_invoice_number(sales_invoice)
+    company = frappe.get_doc("Company", doc.company)
+    establecimiento, punto, numero = _parse_invoice_number(doc)
 
     # Build sections
     param = build_param_section(company, establecimiento)
-    data = build_data_section(sales_invoice, company, establecimiento, punto, numero)
+    data = build_data_section(doc, company, establecimiento, punto, numero)
 
     return {"param": param, "data": data}
 
 
-def _parse_invoice_number(sales_invoice):
+def _parse_invoice_number(doc):
     """Parse invoice number to extract establishment, point and number."""
-    invoice_name = sales_invoice.name
-    
+    invoice_name = doc.name
+
     # Get Company data first (used for all invoice types)
     company = None
-    if hasattr(sales_invoice, 'company') and sales_invoice.company:
+    if hasattr(doc, 'company') and doc.company:
         try:
-            company = frappe.get_doc("Company", sales_invoice.company)
+            company = frappe.get_doc("Company", doc.company)
         except Exception:
             pass
-    
+
     # For POS invoices, get expedition point code from POS Profile
-    if hasattr(sales_invoice, 'is_pos') and sales_invoice.is_pos:
-        if hasattr(sales_invoice, 'pos_profile') and sales_invoice.pos_profile:
+    if hasattr(doc, 'is_pos') and doc.is_pos:
+        if hasattr(doc, 'pos_profile') and doc.pos_profile:
             try:
-                pos_profile = frappe.get_doc("POS Profile", sales_invoice.pos_profile)
+                pos_profile = frappe.get_doc("POS Profile", doc.pos_profile)
                 if hasattr(pos_profile, 'codigo_punto_expedicion') and pos_profile.codigo_punto_expedicion:
                     punto = pos_profile.codigo_punto_expedicion.zfill(3)[-3:]
                     # Get establishment code from Company
@@ -301,7 +318,7 @@ def _parse_invoice_number(sales_invoice):
                     return est, punto, numero
             except Exception:
                 pass
-    
+
     # For non-POS invoices, get expedition point from Company default
     if company:
         if hasattr(company, 'codigo_punto_expedicion_default') and company.codigo_punto_expedicion_default:
@@ -312,4 +329,34 @@ def _parse_invoice_number(sales_invoice):
                 est = company.codigo_establecimiento.zfill(3)[-3:]
             numero = invoice_name.rsplit('-', 1)[-1]
             return est, punto, numero
+
+
+def _get_tipo_emision(doc):
+    """
+    Get tipo de emisión from E-Invoice Setting.
+    1 = Normal, 2 = Contingencia (when system cannot connect to SIFEN).
+    Defaults to 1 (Normal) if not configured.
+    """
+    try:
+        settings = frappe.get_single("E-Invoice Setting")
+        if hasattr(settings, 'tipo_emision') and settings.tipo_emision:
+            return int(str(settings.tipo_emision).split('|')[0].strip())
+    except Exception:
+        pass
+    return 1  # Default to Normal
+
+
+def _get_tipo_transaccion(doc):
+    """
+    Get tipo de transacción from document field (manual selection).
+    Returns None if not set.
+    """
+    tipo_transaccion_raw = getattr(doc, 'sifen_tipo_transaccion', '')
+    if tipo_transaccion_raw:
+        tipo_transaccion_str = str(tipo_transaccion_raw).split('|')[0].strip()
+        try:
+            return int(tipo_transaccion_str)
+        except (ValueError, TypeError):
+            pass
+    return None
     

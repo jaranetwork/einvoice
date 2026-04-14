@@ -13,63 +13,6 @@ from frappe.utils import now_datetime
 SIFEN_API_TIMEOUT = 30
 
 
-def get_tipo_transaccion(sales_invoice):
-    """
-    Determine SIFEN transaction type based on invoice items.
-    
-    Types:
-    1 = Sale of merchandise
-    2 = Service provision
-    3 = Mixed (merchandise and services)
-    4 = Sale of fixed assets
-    5 = Sale of foreign currency
-    6 = Purchase of foreign currency
-    7 = Promotion or sample delivery
-    8 = Donation
-    9 = Advance payment
-    10 = Purchase of products
-    11 = Purchase of services
-    12 = Sale of credit fiscal
-    13 = Medical samples
-    
-    Args:
-        sales_invoice: Sales Invoice document
-    
-    Returns:
-        int: Transaction type (1-13)
-    """
-    has_products = False
-    has_services = False
-    has_fixed_asset = False
-    
-    for item in sales_invoice.items:
-        # Get item type from Item doctype
-        item_data = frappe.db.get_value(
-            "Item",
-            item.item_code,
-            ["is_stock_item", "is_fixed_asset"],
-            as_dict=True
-        )
-        
-        if item_data:
-            if item_data.is_fixed_asset:
-                has_fixed_asset = True
-            elif item_data.is_stock_item:
-                has_products = True
-            else:
-                has_services = True
-    
-    # Priority: Fixed Asset > Mixed > Services > Merchandise
-    if has_fixed_asset:
-        return 4  # Sale of fixed assets
-    elif has_products and has_services:
-        return 3  # Mixed
-    elif has_services:
-        return 2  # Service provision
-    else:
-        return 1  # Sale of merchandise
-
-
 def get_indicador_presencia(sales_invoice):
     """
     Determine SIFEN presencia indicator based on invoice type.
@@ -102,27 +45,29 @@ def get_indicador_presencia(sales_invoice):
 def get_condicion_anticipo(sales_invoice):
     """
     Determine SIFEN anticipo condition based on ERPNext advance payments.
-    
+    Only returns a value if there are actual advances.
+
+    Note: ERPNext advances are document-level, not item-level.
+    Therefore we always return 1 (Global) when advances exist.
+
     Conditions:
-    1 = Global advance (single advance for entire document)
-    2 = Item-level advance (advance distribution by item)
-    
+    1 = Anticipo Global (single advance for entire document)
+
     Args:
         sales_invoice: Sales Invoice document
-    
+
     Returns:
-        int: Anticipo condition (1-2)
+        int or None: 1 if advances exist, or None if no advances
     """
     # Check if there are advances allocated
     if hasattr(sales_invoice, 'advances') and sales_invoice.advances:
-        # Multiple advances = Item-level
-        if len(sales_invoice.advances) > 1:
-            return 2
-        else:
+        total_advance = sum(abs(adv.allocated_amount or 0) for adv in sales_invoice.advances)
+        if total_advance > 0:
+            # ERPNext advances are always document-level, so always Global
             return 1
-    
-    # No advances
-    return 1
+
+    # No advances - return None so field is not sent
+    return None
 
 
 def get_condicion_operacion(sales_invoice):
@@ -167,43 +112,129 @@ def get_condicion_operacion(sales_invoice):
 
 def get_credito_info(sales_invoice):
     """
-    Get credit information from payment terms.
-    
+    Get credit information from payment terms for SIFEN.
+
     Args:
-        sales_invoice: Sales Invoice document
-    
+        sales_invoice: Sales Invoice or Purchase Invoice document
+
     Returns:
-        dict: Credit information
+        dict: Credit information for SIFEN
+            - tipo: 1 = Plazo (días), 2 = Cuotas (installments)
+            - plazo: Días de crédito (required if tipo = 1)
+            - cuotas: Cantidad de cuotas (required if tipo = 2)
+            - montoEntrega: Monto de entrega inicial (optional, if first term due date = invoice date)
+            - infoCuotas: Array con detalles de cada cuota (required if tipo = 2)
     """
     credito_info = {
-        "tipo": 1,  # Plazo
+        "tipo": 1,  # Default: Plazo (días)
         "plazo": "",
-        "dDCondCred": "Plazo"
+        "cuotas": 0,
+        "infoCuotas": []
     }
-    
-    # Try to get days from payment schedule
+
+    # Try to get from payment schedule
     if hasattr(sales_invoice, 'payment_schedule') and sales_invoice.payment_schedule:
+        # Check if there's a single payment term with invoice_portion = 100%
+        # This means it's a simple credit with days (tipo = 1)
+        has_100_percent = False
         total_days = 0
-        for term in sales_invoice.payment_schedule:
-            if hasattr(term, 'credit_days') and term.credit_days:
-                total_days += int(term.credit_days)
         
+        for term in sales_invoice.payment_schedule:
+            # Check if invoice_portion is 100%
+            if hasattr(term, 'invoice_portion') and term.invoice_portion:
+                invoice_portion = float(term.invoice_portion)
+                if invoice_portion == 100:
+                    has_100_percent = True
+                    # Get credit days from this term
+                    if hasattr(term, 'credit_days') and term.credit_days:
+                        total_days += int(term.credit_days)
+            # Fallback: check credit_days even without invoice_portion
+            elif hasattr(term, 'credit_days') and term.credit_days:
+                total_days += int(term.credit_days)
+
+        # If single payment term with 100% invoice portion → tipo 1 (Plazo en días)
+        if has_100_percent and len(sales_invoice.payment_schedule) == 1:
+            credito_info["tipo"] = 1  # Plazo (días)
+            if total_days > 0:
+                credito_info["plazo"] = str(total_days)
+            return credito_info
+
+        # Multiple payment terms or partial payments → tipo 2 (Cuotas)
+        if len(sales_invoice.payment_schedule) > 1 or (has_100_percent is False and len(sales_invoice.payment_schedule) == 1):
+            credito_info["tipo"] = 2  # Cuotas
+            credito_info["cuotas"] = len(sales_invoice.payment_schedule)
+
+            # Check if first payment term has same date as invoice (initial delivery)
+            first_term = sales_invoice.payment_schedule[0]
+            if first_term.due_date and first_term.payment_amount:
+                from frappe.utils import getdate
+                posting_date = getdate(sales_invoice.posting_date)
+                due_date = getdate(first_term.due_date)
+                if posting_date == due_date:
+                    credito_info["montoEntrega"] = float(first_term.payment_amount)
+
+            info_cuotas = []
+            for term in sales_invoice.payment_schedule:
+                info_cuota = {
+                    "moneda": getattr(sales_invoice, 'currency', 'PYG'),
+                    "monto": float(term.payment_amount) if term.payment_amount else 0,
+                    "vencimiento": str(term.due_date) if term.due_date else None
+                }
+                info_cuotas.append(info_cuota)
+
+            credito_info["infoCuotas"] = info_cuotas
+            return credito_info
+
+        # Single term but not 100% - use days if available
         if total_days > 0:
+            credito_info["tipo"] = 1  # Plazo (días)
             credito_info["plazo"] = str(total_days)
             return credito_info
-    
+
     # Try to get from payment terms template
     if hasattr(sales_invoice, 'payment_terms_template') and sales_invoice.payment_terms_template:
         try:
             template = frappe.get_doc("Payment Terms Template", sales_invoice.payment_terms_template)
             if template.terms:
-                total_days = sum([int(term.credit_days or 0) for term in template.terms])
-                if total_days > 0:
-                    credito_info["plazo"] = str(total_days)
-                    return credito_info
+                # Check if there's only one term with 100%
+                if len(template.terms) == 1:
+                    term = template.terms[0]
+                    if hasattr(term, 'invoice_portion') and term.invoice_portion:
+                        invoice_portion = float(term.invoice_portion)
+                        if invoice_portion == 100:
+                            credito_info["tipo"] = 1  # Plazo (días)
+                            if hasattr(term, 'credit_days') and term.credit_days:
+                                credito_info["plazo"] = str(int(term.credit_days))
+                            return credito_info
+                
+                # Multiple terms → Cuotas
+                credito_info["tipo"] = 2  # Cuotas
+                credito_info["cuotas"] = len(template.terms)
+
+                # Check if first term has credit_days = 0 (means same date as invoice)
+                first_term = template.terms[0]
+                if hasattr(first_term, 'credit_days') and first_term.credit_days == 0:
+                    # Calculate amount based on invoice portion
+                    first_term_amount = (float(first_term.invoice_portion or 0) / 100) * float(sales_invoice.grand_total or 0)
+                    if first_term_amount > 0:
+                        credito_info["montoEntrega"] = first_term_amount
+
+                info_cuotas = []
+                for term in template.terms:
+                    info_cuota = {
+                        "moneda": getattr(sales_invoice, 'currency', 'PYG'),
+                        "monto": 0,  # Will be calculated later
+                        "vencimiento": None
+                    }
+                    if hasattr(term, 'credit_days') and term.credit_days:
+                        info_cuota["dias"] = int(term.credit_days)
+                    info_cuotas.append(info_cuota)
+
+                credito_info["infoCuotas"] = info_cuotas
+                return credito_info
         except Exception:
             pass
-    
+
     # Fallback: calculate days from posting date to due date
     if hasattr(sales_invoice, 'payment_schedule') and sales_invoice.payment_schedule:
         for term in sales_invoice.payment_schedule:
@@ -212,69 +243,82 @@ def get_credito_info(sales_invoice):
                     from frappe.utils import date_diff
                     days = date_diff(term.due_date, sales_invoice.posting_date)
                     if days > 0:
+                        credito_info["tipo"] = 1  # Plazo (días)
                         credito_info["plazo"] = str(days)
                         return credito_info
                 except Exception:
                     pass
-    
+
     return credito_info
 
 
-def get_condicion_entregas(sales_invoice, moneda, condicion_tipo_cambio):
+def get_condicion_entregas(doc, moneda, condicion_tipo_cambio=None):
     """
     Build entregas array from payment schedule.
-    
+    Gets exchange rate from Currency Exchange first.
+
     Args:
-        sales_invoice: Sales Invoice document
+        doc: Sales Invoice or Purchase Invoice document
         moneda: Currency code
-        condicion_tipo_cambio: Exchange rate condition
-    
+        condicion_tipo_cambio: Exchange rate condition (deprecated, kept for compatibility)
+
     Returns:
         list: Entregas array
     """
+    # Get exchange rate from Currency Exchange
+    cambio_valor = 0
+    if moneda != "PYG":
+        cambio_valor = frappe.db.get_value(
+            "Currency Exchange",
+            {"from_currency": moneda, "to_currency": "PYG"},
+            "exchange_rate"
+        )
+        if not cambio_valor and hasattr(doc, 'conversion_rate') and doc.conversion_rate:
+            cambio_valor = doc.conversion_rate
+
     entregas = []
-    
+
     # Check if invoice has advances
-    if hasattr(sales_invoice, 'advances') and sales_invoice.advances:
-        for idx, advance in enumerate(sales_invoice.advances):
+    if hasattr(doc, 'advances') and doc.advances:
+        for idx, advance in enumerate(doc.advances):
             if advance.allocated_amount and advance.allocated_amount > 0:
                 entrega = {
                     "numero": idx + 1,
                     "monto": abs(float(advance.allocated_amount)),
                     "fecha": str(advance.reference_date) if advance.reference_date else None,
                     "tipo": 5,  # Advance payment
-                    "cambio": condicion_tipo_cambio if moneda != "PYG" else 1
+                    "cambio": cambio_valor if moneda != "PYG" else 1
                 }
                 entregas.append(entrega)
-    
+
     # Check payment schedule
-    if hasattr(sales_invoice, 'payment_schedule') and sales_invoice.payment_schedule:
-        for idx, term in enumerate(sales_invoice.payment_schedule):
+    if hasattr(doc, 'payment_schedule') and doc.payment_schedule:
+        for idx, term in enumerate(doc.payment_schedule):
             if term.payment_amount and term.payment_amount > 0:
                 # Skip if already added as advance
                 if _is_advance_already_added(term, entregas):
                     continue
-                
+
                 entrega = {
                     "numero": len(entregas) + 1,
                     "monto": abs(float(term.payment_amount)),
                     "fecha": str(term.due_date) if term.due_date else None,
-                    "tipo": 1 if hasattr(sales_invoice, 'is_pos') and sales_invoice.is_pos else 2,
-                    "cambio": condicion_tipo_cambio if moneda != "PYG" else 1
+                    "tipo": 1 if hasattr(doc, 'is_pos') and doc.is_pos else 2,
+                    "cambio": cambio_valor if moneda != "PYG" else 1
                 }
                 entregas.append(entrega)
-    
+
     # If no payment schedule, use grand total as single payment
-    if not entregas and hasattr(sales_invoice, 'grand_total'):
+    if not entregas and hasattr(doc, 'grand_total'):
         entrega = {
             "numero": 1,
-            "monto": abs(float(sales_invoice.grand_total)),
-            "fecha": str(sales_invoice.posting_date) if hasattr(sales_invoice, 'posting_date') else None,
+            "monto": abs(float(doc.grand_total)),
+            "fecha": str(doc.posting_date) if hasattr(doc, 'posting_date') else None,
             "tipo": 1,  # Cash
-            "cambio": condicion_tipo_cambio if moneda != "PYG" else 1
+            "cambio": cambio_valor if moneda != "PYG" else 1
         }
         entregas.append(entrega)
-    
+
     return entregas
 
 

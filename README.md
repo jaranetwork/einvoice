@@ -15,10 +15,8 @@ Envía datos de facturación de ERPNext al sistema FEPY para la generación de X
 ---
 
 ## Requisitos
-
+- Frappe Framework v15 docker
 - ERPNext v15
-- Frappe Framework v15
-- MariaDB 11.8
 - Timbrado habilitado en SET
 
 ---
@@ -65,7 +63,7 @@ La documentación completa está disponible en:
 
 Este módulo trabaja con el sistema FEPY:
 - [FEPY backend](https://github.com/jaranetwork/fepy-backend)
-- [FEPY frontend - Interface web](https://github.com/jaranetwork/fepy-frontend)
+- [FEPY frontend - Interfaz web](https://github.com/jaranetwork/fepy-frontend)
 
 ---
 

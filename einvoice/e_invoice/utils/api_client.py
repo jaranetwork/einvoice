@@ -132,17 +132,25 @@ def validar_campos_sifen(doc, method=None):
     """
     Validate all SIFEN required fields before sending invoice.
     Orchestrates all validators.
-    
-    Note: Payment validation is skipped during 'validate' event (Save).
-    Payment validation runs only during 'on_submit' event (Validate button).
+
+    Detects document type and delegates to appropriate validator.
 
     Args:
-        doc: Sales Invoice document
+        doc: Sales Invoice or Purchase Invoice document
         method: Event method name (unused)
 
     Raises:
         frappe.ValidationError: If validation fails
     """
+    doctype = doc.doctype
+
+    if doctype == "Purchase Invoice":
+        # Delegate to Purchase Invoice validator
+        from einvoice.e_invoice.doc_events.purchase_invoice import validate_invoice_for_einvoice
+        validate_invoice_for_einvoice(doc)
+        return
+
+    # Sales Invoice validation (original logic)
     errors = []
 
     # Get company document
@@ -159,7 +167,7 @@ def validar_campos_sifen(doc, method=None):
     # Validate Customer fields
     customer_data, customer_country = _get_customer_data(doc)
     tipo_operacion = _get_tipo_operacion(customer_data, customer_country)
-    
+
     customer_errors = validate_customer_sifen_fields(
         doc, customer_data, customer_country, tipo_operacion
     )
@@ -170,45 +178,8 @@ def validar_campos_sifen(doc, method=None):
     errors.extend(items_errors)
 
     # Validate Payments (only during on_submit, not during validate/save)
-    # Block E-Invoice generation if "Include Payment After Validate" is checked AND no payments exist
-    # docstatus: 0=Borrador, 1=Validado, 2=Cancelado
+    # Payment validation is now handled by validate_payment_sifen_fields in payment_validator.py
     if hasattr(doc, 'docstatus') and doc.docstatus == 1:
-        # Check if "Include Payment After Validate" is checked
-        if hasattr(doc, 'incluir_pago_despues_validar') and doc.incluir_pago_despues_validar:
-            # Check if there are any Payment Entries linked to this invoice
-            has_payments = False
-            
-            # Check in Payment Entry Reference table
-            payment_entries = frappe.get_all(
-                "Payment Entry Reference",
-                filters={
-                    "reference_doctype": "Sales Invoice",
-                    "reference_name": doc.name
-                },
-                fields=["parent", "allocated_amount"]
-            )
-            
-            if payment_entries:
-                # Check if any payment entry has allocated amount > 0
-                for pe_ref in payment_entries:
-                    if pe_ref.allocated_amount and pe_ref.allocated_amount > 0:
-                        has_payments = True
-                        break
-            
-            # Also check in Sales Invoice payments table (for POS)
-            if not has_payments and hasattr(doc, 'payments') and doc.payments:
-                for payment in doc.payments:
-                    if payment.amount and payment.amount > 0:
-                        has_payments = True
-                        break
-            
-            # Block E-Invoice generation if no payments found
-            if not has_payments:
-                frappe.throw(
-                    _("Agrega un pago en Entrada de Pago para enviar a FEPY."),
-                    title=_("Se requiere el pago antes de la emisión de la factura electrónica contado.")
-                )
-        
         # Validate payment fields for normal invoices
         is_pos_invoice = hasattr(doc, 'is_pos') and doc.is_pos
         payment_errors = validate_payment_sifen_fields(doc, is_pos_invoice, customer_country)
@@ -223,29 +194,43 @@ def validar_campos_sifen(doc, method=None):
         frappe.throw("<br><br>".join(errors), title=_("Missing Required Fields for E-Invoice"))
 
 
-def send_invoice_to_external_api(sales_invoice):
+def send_invoice_to_external_api(doc):
     """
     Send invoice to SIFEN API.
+    Works with both Sales Invoice and Purchase Invoice.
 
     Args:
-        sales_invoice: Sales Invoice document
+        doc: Sales Invoice or Purchase Invoice document
 
     Returns:
         dict: API response
     """
     # Import here to avoid circular import
     from ..builders import prepare_invoice_data
-    
+
     # Prepare invoice data
-    invoice_data = prepare_invoice_data(sales_invoice)
-    
+    invoice_data = prepare_invoice_data(doc)
+
+    # Save JSON to document BEFORE sending (works for both Sales Invoice and Purchase Invoice)
+    json_str = json.dumps(invoice_data, indent=2, ensure_ascii=False)
+    try:
+        frappe.db.set_value(
+            doc.doctype,
+            doc.name,
+            "custom_einvoice_json",
+            json_str
+        )
+        frappe.db.commit()
+    except Exception as e:
+        print(f"Warning: Could not save JSON to document: {e}")
+
     # Log the complete payload to console for debugging (visible in bench start)
     print("\n" + "="*80)
-    print(f"E-INVOICE PAYLOAD FOR {sales_invoice.name}")
+    print(f"E-INVOICE PAYLOAD FOR {doc.name}")
     print("="*80)
-    print(json.dumps(invoice_data, indent=2, ensure_ascii=False))
+    print(json_str)
     print("="*80 + "\n")
-    
+
     # Get API settings
     settings = frappe.get_single("E-Invoice Setting")
     base_url = settings.api_endpoint.rstrip('/')
@@ -254,15 +239,15 @@ def send_invoice_to_external_api(sales_invoice):
         "Content-Type": "application/json",
         "Authorization": f"Bearer {settings.api_key}"
     }
-    
+
     # Log request details to console
     print("\n" + "="*80)
-    print(f"E-INVOICE REQUEST FOR {sales_invoice.name}")
+    print(f"E-INVOICE REQUEST FOR {doc.name}")
     print("="*80)
     print(f"URL: {url}")
     print(f"Headers: {headers}")
     print("="*80 + "\n")
-    
+
     # Send to API
     try:
         response = requests.post(
@@ -271,9 +256,9 @@ def send_invoice_to_external_api(sales_invoice):
             headers=headers,
             timeout=SIFEN_API_TIMEOUT
         )
-        
-        return _process_api_response(response, sales_invoice, invoice_data)
-    
+
+        return _process_api_response(response, doc, invoice_data)
+
     except requests.exceptions.Timeout:
         return {"success": False, "message": "Request timeout while connecting to SIFEN API"}
     except requests.exceptions.RequestException as e:
@@ -385,20 +370,19 @@ def _process_api_response(response, sales_invoice, invoice_data):
         return _handle_api_failure(result, response)
 
 
-def _handle_api_success(result, sales_invoice, invoice_data):
+def _handle_api_success(result, doc, invoice_data):
     """Handle successful API response."""
     from frappe.utils import now_datetime
-    
+
     data = result.get("data", {})
     factura_id = data.get("facturaId", "")
-    
-    # Update sales invoice
+
+    # Update invoice (works for both Sales Invoice and Purchase Invoice)
     frappe.db.set_value(
-        "Sales Invoice",
-        sales_invoice.name,
+        doc.doctype,
+        doc.name,
         {
             "custom_sifen_factura_id": factura_id,
-            "custom_einvoice_json": json.dumps(invoice_data, indent=2),
             "custom_einvoice_generated": 1,
             "custom_einvoice_generated_date": now_datetime(),
             "custom_sifen_correlativo": data.get("correlativo", ""),
@@ -409,10 +393,10 @@ def _handle_api_success(result, sales_invoice, invoice_data):
         }
     )
     frappe.db.commit()
-    
+
     # Format message
     formatted_message = _format_success_message(data, result.get("message", ""))
-    
+
     return {
         "success": True,
         "message": formatted_message,
