@@ -79,15 +79,18 @@ def get_condicion_operacion(sales_invoice):
     2 = Crédito (deferred payment)
     
     Args:
-        sales_invoice: Sales Invoice document
+        sales_invoice: Sales Invoice or Purchase Invoice document
     
     Returns:
         int: Payment condition (1-2)
     """
+    # Check is_paid for Purchase Invoice
+    if hasattr(sales_invoice, 'is_paid') and sales_invoice.is_paid:
+        return 1  # Contado (already paid)
+    
     # Check outstanding amount
     if hasattr(sales_invoice, 'outstanding_amount') and sales_invoice.outstanding_amount:
-        if sales_invoice.outstanding_amount > 0:
-            return 2  # Crédito
+        return 2  # Crédito
     
     # Check payment terms
     if hasattr(sales_invoice, 'payment_terms_template') and sales_invoice.payment_terms_template:

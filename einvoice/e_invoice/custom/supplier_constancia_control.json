@@ -1,0 +1,24 @@
+{
+  "doctype": "Custom Field",
+  "custom_fields": [
+    {
+      "dt": "Supplier",
+      "fieldname": "supplier_constancia_control",
+      "fieldtype": "Data",
+      "label": "Autofactura SIFEN Constancia Control",
+      "insert_after": "supplier_constancia_numero",
+      "module": "E-Invoice",
+      "description": "Constancia Número de Control según SIFEN",
+      "length": 8,
+      "no_copy": 0,
+      "print_hide": 0,
+      "report_hide": 0,
+      "reqd": 0,
+      "search_index": 0,
+      "translatable": 0
+    }
+  ],
+  "property_setters": [],
+  "custom_perms": [],
+  "links": []
+}

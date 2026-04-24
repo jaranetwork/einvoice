@@ -64,8 +64,7 @@ def build_data_section(doc, company, establecimiento, punto, numero, fecha=None,
     if fecha is None:
         fecha = _build_fecha(doc)
 
-    # Build sections
-    cliente = build_cliente_section(doc, party, address_data, location_codes, tipo_documento)
+    # Build sections - build_cliente_section now returns cliente OR autoFactura based on doctype
     items = build_items_data(doc, moneda)
     condicion = build_condicion_section(doc, moneda, condicion_tipo_cambio)
 
@@ -101,7 +100,17 @@ def build_data_section(doc, company, establecimiento, punto, numero, fecha=None,
     # Get tax type
     tipo_impuesto_code, _ = get_sifen_tipo_impuesto(doc)
     
-    # Build data dictionary
+    # Build cliente section (supplier data for Purchase Invoice, customer data for Sales Invoice)
+    cliente_section = build_cliente_section(doc, party, address_data, location_codes, tipo_documento)
+    
+    # Determine if Purchase Invoice
+    is_purchase = doc.doctype == "Purchase Invoice"
+    
+    # Build autoFactura section for Purchase Invoice
+    from .cliente_builder import build_auto_factura_section
+    auto_factura_section = build_auto_factura_section(doc, party, address_data, location_codes) if is_purchase else None
+    
+    # Build data dictionary - both doctypes use "cliente" key
     data = {
         "tipoDocumento": tipo_documento,
         "establecimiento": establecimiento,
@@ -115,13 +124,20 @@ def build_data_section(doc, company, establecimiento, punto, numero, fecha=None,
         "tipoTransaccion": _get_tipo_transaccion(doc),
         "tipoImpuesto": tipo_impuesto_code,
         "moneda": moneda,
-        "cliente": cliente,
+        "cliente": cliente_section,
         "usuario": usuario,
         "factura": factura,
         "condicion": condicion,
         "items": items,
         "totalPago": total_pago
     }
+    
+    # Add cliente section - for Purchase Invoice, also include autoFactura
+    if is_purchase:
+        data["cliente"] = cliente_section
+        data["autoFactura"] = auto_factura_section
+    else:
+        data["cliente"] = cliente_section
 
     # Add descuentoGlobal section if applicable
     if descuento_global > 0:
@@ -166,6 +182,16 @@ def build_data_section(doc, company, establecimiento, punto, numero, fecha=None,
 
 def _determine_document_type(doc):
     """Determine document type based on invoice fields."""
+    # Purchase Invoice = Autofactura (tipoDocumento = 4)
+    if doc.doctype == "Purchase Invoice":
+        if hasattr(doc, 'is_return') and doc.is_return:
+            return 5  # Nota de Crédito Autofactura
+        elif hasattr(doc, 'is_debit_note') and doc.is_debit_note:
+            return 6  # Nota de Débito Autofactura
+        else:
+            return 4  # Autofactura electrónica
+    
+    # Sales Invoice
     if hasattr(doc, 'is_return') and doc.is_return:
         return 5  # Nota de Crédito
     elif hasattr(doc, 'is_debit_note') and doc.is_debit_note:
@@ -207,7 +233,15 @@ def _build_factura_metadata(doc):
 
 def _get_documento_descripcion(tipo_documento):
     """Get document description based on type."""
-    if tipo_documento == 5:
+    # Autofactura types (Purchase Invoice)
+    if tipo_documento == 4:
+        return "Autofactura electrónica"
+    elif tipo_documento == 7:
+        return "Nota de remisión electrónica"
+    elif tipo_documento == 8:
+        return "Comprobante de retención electrónico"
+    # Sales Invoice types
+    elif tipo_documento == 5:
         return "Nota de crédito electrónica"
     elif tipo_documento == 6:
         return "Nota de débito electrónica"
@@ -241,13 +275,38 @@ def _build_nota_credito_debito(doc, tipo_documento):
 
 
 def _build_documento_asociado(doc, tipo_documento):
-    """Build documentoAsociado section for NC/ND."""
+    """
+    Build documentoAsociado section.
+    For Sales Invoice (formato 1): busca CDC en return_against
+    For Purchase Invoice (formato 3): constanciaTipo, constanciaNumero, constanciaControl
+    """
+    # Purchase Invoice always needs documentoAsociado
+    if doc.doctype == "Purchase Invoice":
+        constancia_tipo = 1
+        constancia_numero = None
+        constancia_control = None
+
+        if doc.supplier:
+            supplier_data = frappe.db.get_value(
+                "Supplier",
+                doc.supplier,
+                ["sifen_tipo_constancias", "supplier_constancia_numero", "supplier_constancia_control"],
+                as_dict=True
+            )
+            if supplier_data:
+                if supplier_data.sifen_tipo_constancias:
+                    constancia_tipo = int(str(supplier_data.sifen_tipo_constancias).split('|')[0].strip())
+                constancia_numero = supplier_data.supplier_constancia_numero
+                constancia_control = supplier_data.supplier_constancia_control
+
+        return [{"formato": 3, "constanciaTipo": constancia_tipo, "constanciaNumero": constancia_numero, "constanciaControl": constancia_control}]
+
+    # Sales Invoice: only for NC/ND (tipo 5, 6)
     if tipo_documento not in [5, 6]:
         return []
 
     cdc_original = ""
 
-    # Try to get CDC from original invoice
     if hasattr(doc, 'return_against') and doc.return_against:
         try:
             original_doctype = doc.doctype
@@ -257,7 +316,7 @@ def _build_documento_asociado(doc, tipo_documento):
             pass
 
     if cdc_original:
-        return [{"formato": 1, "cdc": cdc_original}]
+        return [{"tipo": 1, "cdc": cdc_original}]
 
     return []
 

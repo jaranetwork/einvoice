@@ -24,10 +24,11 @@ def get_party_details(doc):
         party_doctype = "Supplier"
         party_field = "supplier"
         address_field = "supplier_address"
-        fields = ["supplier_name as customer_name", "tax_id", "supplier_type as customer_type",
+        fields = ["supplier_name", "supplier_name as customer_name", "tax_id", "supplier_type as customer_type",
                   "email_id", "mobile_no", "sifen_contribuyente", "sifen_tipo_contribuyente",
                   "supplier_group as customer_group",
-                  "sifen_tipo_documento", "sifen_tipo_impuesto", "sifen_codigo_proveedor as sifen_codigo_cliente"]
+                  "sifen_tipo_documento", "sifen_tipo_impuesto", "sifen_codigo_proveedor as sifen_codigo_cliente",
+                  "sifen_tipo_autofactura"]
     else:
         party_doctype = "Customer"
         party_field = "customer"
@@ -58,8 +59,9 @@ def get_party_details(doc):
 
 def build_cliente_section(doc, party, address_data, location_codes, tipo_documento):
     """
-    Build the 'cliente' section with party (customer/supplier) information.
-
+    Build the 'cliente' section for both Sales Invoice and Purchase Invoice.
+    For Purchase Invoice: returns cliente with supplier data (company RUC for Autofactura).
+    
     Args:
         doc: Sales Invoice or Purchase Invoice document
         party: Party data dict
@@ -67,6 +69,120 @@ def build_cliente_section(doc, party, address_data, location_codes, tipo_documen
         location_codes: Location codes dict
         tipo_documento: Document type (5=NC, 6=ND)
 
+    Returns:
+        dict: Cliente section for SIFEN payload (supplier data for Purchase Invoice)
+    """
+    return _build_cliente_original(party, address_data, location_codes, doc)
+
+
+def build_auto_factura_section(doc, party, address_data, location_codes):
+    """
+    Build the 'autoFactura' section for Purchase Invoice.
+    
+    Args:
+        doc: Purchase Invoice document
+        party: Supplier data dict
+        address_data: Address data dict
+        location_codes: Location codes dict
+    
+    Returns:
+        dict: autoFactura section for SIFEN payload
+    """
+    # Check if this is a Purchase Invoice (autofactura)
+    if doc.doctype != "Purchase Invoice":
+        return None
+    
+    # Determine tipoVendedor (tipo de operación)
+    tipo_vendedor = 1  # Default: No contribuyente
+    if party.get('sifen_tipo_autofactura'):
+        tipo_vendedor_raw = str(party.get('sifen_tipo_autofactura')).split('|')[0].strip()
+        try:
+            tipo_vendedor = int(tipo_vendedor_raw)
+        except (ValueError, TypeError):
+            tipo_vendedor = 1
+    
+    # Determine if supplier is contributor
+    es_contribuyente = _determine_contribuyente(party)
+    
+    # Get tipoContribuyente from SIFEN field
+    tipo_contribuyente_raw = party.get('sifen_tipo_contribuyente', '')
+    if tipo_contribuyente_raw:
+        tipo_contribuyente_str = str(tipo_contribuyente_raw).split('|')[0].strip()
+        try:
+            tipo_contribuyente = int(tipo_contribuyente_str)
+        except (ValueError, TypeError):
+            tipo_contribuyente = 1 if party.supplier_type == "Individual" else 2
+    else:
+        tipo_contribuyente = 1 if party.supplier_type == "Individual" else 2
+    
+    # Get documentoTipo from supplier
+    documento_tipo = None
+    if party.get('sifen_tipo_documento'):
+        tipo_doc_str = str(party.get('sifen_tipo_documento')).strip()
+        if '|' in tipo_doc_str:
+            tipo_doc_str = tipo_doc_str.split('|')[0].strip()
+        try:
+            documento_tipo = int(tipo_doc_str)
+        except (ValueError, TypeError):
+            documento_tipo = 1
+    
+    # documentoNumero is typically the tax_id/RUC
+    documento_numero = party.tax_id or ""
+    
+    # nombre uses alias customer_name (supplier_name aliased to customer_name in get_party_details)
+    nombre_party = party.customer_name
+    
+    # Get transaction location codes (same as party location for now)
+    transaccion_codes = location_codes.copy()
+    
+    # Get tipoVendedor from supplier sifen_tipo_autofactura field, default to 1
+    tipo_vendedor = 1  # Default: No contribuyente
+    if party.get('sifen_tipo_autofactura'):
+        tipo_vendedor_str = str(party.get('sifen_tipo_autofactura')).split('|')[0].strip()
+        try:
+            tipo_vendedor = int(tipo_vendedor_str)
+        except (ValueError, TypeError):
+            tipo_vendedor = 1
+    
+    # Build autoFactura section
+    auto_factura = {
+        "tipoVendedor": tipo_vendedor,
+        "documentoTipo": documento_tipo,
+        "documentoNumero": documento_numero,
+        "nombre": nombre_party,
+        "direccion": address_data.get("address_line1", ""),
+        "numeroCasa": address_data.get("sifen_numero_casa", ""),
+        "departamento": location_codes.get("departamento"),
+        "departamentoDescripcion": location_codes.get("departamentoDescripcion"),
+        "distrito": location_codes.get("distrito"),
+        "distritoDescripcion": location_codes.get("distritoDescripcion"),
+        "ciudad": location_codes.get("ciudad"),
+        "ciudadDescripcion": location_codes.get("ciudadDescripcion"),
+        "ubicacion": {
+            "lugar": address_data.get("address_line1", ""),
+            "departamento": transaccion_codes.get("departamento"),
+            "departamentoDescripcion": transaccion_codes.get("departamentoDescripcion"),
+            "distrito": transaccion_codes.get("distrito"),
+            "distritoDescripcion": transaccion_codes.get("distritoDescripcion"),
+            "ciudad": transaccion_codes.get("ciudad"),
+            "ciudadDescripcion": transaccion_codes.get("ciudadDescripcion")
+        }
+    }
+    
+    return auto_factura
+
+
+def _build_cliente_original(party, address_data, location_codes, doc=None):
+    """
+    Build the original 'cliente' section for Sales Invoice.
+    For Purchase Invoice: uses company RUC instead of supplier RUC (Autofactura rule).
+    
+    Args:
+        party: Customer data dict
+        address_data: Address data dict
+        location_codes: Location codes dict
+        doc: Document object (optional, for Purchase Invoice RUC override)
+    
     Returns:
         dict: Cliente section for SIFEN payload
     """
@@ -94,11 +210,17 @@ def build_cliente_section(doc, party, address_data, location_codes, tipo_documen
     # Get document type and number (only if not contributor and not B2F)
     documento_tipo, documento_numero = _get_documento_data(party, party.customer_name, es_contribuyente, tipo_operacion)
 
+    # For Purchase Invoice, use company RUC instead of supplier RUC (Autofactura rule)
+    ruc = party.tax_id
+    if doc and doc.doctype == "Purchase Invoice":
+        company = frappe.get_doc("Company", doc.company)
+        ruc = company.tax_id
+
     # Build cliente object
     cliente = {
         "contribuyente": es_contribuyente,
         "tipoOperacion": tipo_operacion,
-        "ruc": party.tax_id,
+        "ruc": ruc,
         "razonSocial": party.customer_name,
         "nombreFantasia": party.customer_name,
         "direccion": address_data.get("address_line1", ""),

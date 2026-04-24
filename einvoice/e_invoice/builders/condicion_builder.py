@@ -134,6 +134,7 @@ def _build_entregas(doc, moneda):
     Maps ERPNext payment modes to SIFEN payment types.
 
     Priority:
+    0. is_paid (for Purchase Invoice - immediate payment)
     1. POS payments table (for POS invoices)
     2. Advances (linked Payment Entries)
     3. Payment Schedule (for credit invoices)
@@ -150,6 +151,33 @@ def _build_entregas(doc, moneda):
             cambio_valor = doc.conversion_rate
 
     entregas = []
+
+    # 0. Check is_paid (Purchase Invoice - already paid)
+    if hasattr(doc, 'is_paid') and doc.is_paid:
+        payment_mode = getattr(doc, 'mode_of_payment', None)
+        paid_amount = getattr(doc, 'paid_amount', None) or getattr(doc, 'grand_total', 0)
+        sifen_tipo = _get_sifen_payment_type(payment_mode)
+
+        entrega = {
+            "tipo": sifen_tipo,
+            "monto": str(abs(float(paid_amount))),
+            "moneda": moneda,
+            "cambio": cambio_valor if moneda != "PYG" else 0
+        }
+
+        # Add additional info for specific payment types
+        if sifen_tipo in [3, 4]:  # Tarjeta de crédito/débito
+            card_info = _get_card_info(payment_mode)
+            if card_info:
+                entrega["infoTarjeta"] = card_info
+
+        if sifen_tipo == 2:  # Cheque
+            cheque_info = _get_cheque_info(payment_mode)
+            if cheque_info:
+                entrega["infoCheque"] = cheque_info
+
+        entregas.append(entrega)
+        return entregas
 
     # 1. Check payments table FIRST (for POS invoices)
     if hasattr(doc, 'payments') and doc.payments:

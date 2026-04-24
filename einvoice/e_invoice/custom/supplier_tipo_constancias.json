@@ -1,0 +1,24 @@
+{
+  "doctype": "Custom Field",
+  "custom_fields": [
+    {
+      "dt": "Supplier",
+      "fieldname": "sifen_tipo_constancias",
+      "fieldtype": "Select",
+      "label": "Autofactura Tipo de Constancias SIFEN.",
+      "insert_after": "sifen_tipo_autofactura",
+      "module": "E-Invoice",
+      "description": "Tipo de Constancias Autofactura según SIFEN: 1=Constancia de no ser contribuyente, 2=Constancia de microproductores",
+      "no_copy": 0,
+      "print_hide": 0,
+      "report_hide": 0,
+      "reqd": 0,
+      "search_index": 0,
+      "translatable": 0,
+      "options": "\n1|Constancia de no ser contribuyente\n2|Constancia de microproductores"
+    }
+  ],
+  "property_setters": [],
+  "custom_perms": [],
+  "links": []
+}
