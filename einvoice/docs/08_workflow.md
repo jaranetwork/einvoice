@@ -192,8 +192,6 @@ Menú → E-Invoice → Send to SIFEN
    - custom_sifen_correlativo
    - custom_sifen_estado
    - custom_sifen_cdc
-   - custom_sifen_xml_link
-   - custom_sifen_kude_link
 5. **Mostrar mensaje** de éxito/error
 
 ### 4.3 Resultado

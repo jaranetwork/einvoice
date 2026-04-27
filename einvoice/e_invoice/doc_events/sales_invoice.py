@@ -570,8 +570,6 @@ def get_einvoice_status(invoice_name):
         "correlativo": invoice.custom_sifen_correlativo,
         "estado": invoice.custom_sifen_estado,
         "cdc": invoice.custom_sifen_cdc,
-        "xml_link": invoice.custom_sifen_xml_link,
-        "kude_link": invoice.custom_sifen_kude_link
     }
 
 
@@ -602,18 +600,13 @@ def force_refresh_einvoice_status(invoice_name):
     if result["success"]:
         data = result.get("data", {})
 
-        # Update sales invoice with latest status
-        frappe.db.set_value(
-            "Sales Invoice",
-            invoice_name,
-            {
-                "custom_sifen_estado": data.get("estado", invoice.custom_sifen_estado),
-                "custom_sifen_cdc": data.get("cdc", invoice.custom_sifen_cdc),
-                "custom_sifen_correlativo": data.get("correlativo", invoice.custom_sifen_correlativo),
-                "custom_sifen_xml_link": data.get("xmlLink", invoice.custom_sifen_xml_link),
-                "custom_sifen_kude_link": data.get("kudeLink", invoice.custom_sifen_kude_link)
-            }
-        )
+        update_dict = {
+            "custom_sifen_estado": data.get("estado", invoice.custom_sifen_estado),
+            "custom_sifen_cdc": data.get("cdc", invoice.custom_sifen_cdc),
+            "custom_sifen_correlativo": data.get("correlativo", invoice.custom_sifen_correlativo),
+        }
+
+        frappe.db.set_value("Sales Invoice", invoice_name, update_dict)
 
         frappe.db.commit()
 
@@ -656,18 +649,13 @@ def refresh_einvoice_status(invoice_name):
     if result["success"]:
         data = result.get("data", {})
 
-        # Update sales invoice with latest status
-        frappe.db.set_value(
-            "Sales Invoice",
-            invoice_name,
-            {
-                "custom_sifen_estado": data.get("estado", invoice.custom_sifen_estado),
-                "custom_sifen_cdc": data.get("cdc", invoice.custom_sifen_cdc),
-                "custom_sifen_correlativo": data.get("correlativo", invoice.custom_sifen_correlativo),
-                "custom_sifen_xml_link": data.get("xmlLink", invoice.custom_sifen_xml_link),
-                "custom_sifen_kude_link": data.get("kudeLink", invoice.custom_sifen_kude_link)
-            }
-        )
+        update_dict = {
+            "custom_sifen_estado": data.get("estado", invoice.custom_sifen_estado),
+            "custom_sifen_cdc": data.get("cdc", invoice.custom_sifen_cdc),
+            "custom_sifen_correlativo": data.get("correlativo", invoice.custom_sifen_correlativo)
+        }
+
+        frappe.db.set_value("Sales Invoice", invoice_name, update_dict)
 
         frappe.db.commit()
 
@@ -694,16 +682,6 @@ def download_einvoice_xml(invoice_name):
     result = download_xml(invoice.custom_sifen_factura_id)
 
     if result["success"]:
-        # Update the XML link in sales invoice
-        frappe.db.set_value(
-            "Sales Invoice",
-            invoice_name,
-            "custom_sifen_xml_link",
-            result["file_url"]
-        )
-
-        frappe.db.commit()
-
         frappe.msgprint(_("XML downloaded: {0}").format(result["file_url"]), alert=True)
     else:
         frappe.msgprint(_(result["message"]), alert=True)
@@ -727,16 +705,6 @@ def download_einvoice_pdf(invoice_name):
     result = download_pdf(invoice.custom_sifen_factura_id)
 
     if result["success"]:
-        # Update the PDF link in sales invoice
-        frappe.db.set_value(
-            "Sales Invoice",
-            invoice_name,
-            "custom_sifen_kude_link",
-            result["file_url"]
-        )
-
-        frappe.db.commit()
-
         frappe.msgprint(_("PDF downloaded: {0}").format(result["file_url"]), alert=True)
     else:
         frappe.msgprint(_(result["message"]), alert=True)

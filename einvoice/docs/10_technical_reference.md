@@ -238,8 +238,6 @@ doctype_python = {
 | `custom_sifen_correlativo` | Data | SIFEN Correlativo | Correlativo |
 | `custom_sifen_estado` | Data | SIFEN Estado | Estado |
 | `custom_sifen_cdc` | Data | SIFEN CDC | CDC |
-| `custom_sifen_xml_link` | Data | SIFEN XML Link | URL XML |
-| `custom_sifen_kude_link` | Data | SIFEN KUDE Link | URL KUDE |
 
 ---
 

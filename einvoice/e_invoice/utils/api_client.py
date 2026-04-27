@@ -226,7 +226,7 @@ def send_invoice_to_external_api(doc):
 
     # Log the complete payload to console for debugging (visible in bench start)
     print("\n" + "="*80)
-    print(f"E-INVOICE PAYLOAD FOR {doc.name}")
+    print(f"E-INVOICE PAYLOAD FOR {doc}")
     print("="*80)
     print(json_str)
     print("="*80 + "\n")
@@ -354,7 +354,7 @@ def _parse_invoice_number(sales_invoice):
     return "001", "001", invoice_name[-8:] if len(invoice_name) > 8 else invoice_name
 
 
-def _process_api_response(response, sales_invoice, invoice_data):
+def _process_api_response(response, doc, invoice_data):
     """Process API response and update invoice."""
     try:
         result = response.json()
@@ -365,7 +365,7 @@ def _process_api_response(response, sales_invoice, invoice_data):
         }
     
     if result.get("success") is True:
-        return _handle_api_success(result, sales_invoice, invoice_data)
+        return _handle_api_success(result, doc, invoice_data)
     else:
         return _handle_api_failure(result, response)
 
@@ -377,21 +377,16 @@ def _handle_api_success(result, doc, invoice_data):
     data = result.get("data", {})
     factura_id = data.get("facturaId", "")
 
-    # Update invoice (works for both Sales Invoice and Purchase Invoice)
-    frappe.db.set_value(
-        doc.doctype,
-        doc.name,
-        {
-            "custom_sifen_factura_id": factura_id,
-            "custom_einvoice_generated": 1,
-            "custom_einvoice_generated_date": now_datetime(),
-            "custom_sifen_correlativo": data.get("correlativo", ""),
-            "custom_sifen_estado": data.get("estado", ""),
-            "custom_sifen_cdc": data.get("cdc"),
-            "custom_sifen_xml_link": data.get("xmlLink", ""),
-            "custom_sifen_kude_link": data.get("kudeLink", "")
-        }
-    )
+    update_dict = {
+        "custom_sifen_factura_id": factura_id,
+        "custom_einvoice_generated": 1,
+        "custom_einvoice_generated_date": now_datetime(),
+        "custom_sifen_correlativo": data.get("correlativo", ""),
+        "custom_sifen_estado": data.get("estado", ""),
+        "custom_sifen_cdc": data.get("cdc")
+    }
+
+    frappe.db.set_value(doc.doctype, doc.name, update_dict)
     frappe.db.commit()
 
     # Format message
