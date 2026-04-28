@@ -1,0 +1,24 @@
+{
+  "doctype": "Custom Field",
+  "custom_fields": [
+    {
+      "dt": "Delivery Note",
+      "fieldname": "delivery_note_responsable",
+      "fieldtype": "Select",
+      "label": "SIFEN Responsable Nota de Remisión",
+      "insert_after": "delivery_note_motivo",
+      "module": "E-Invoice",
+      "description": "Responsable Nota de Remisión según SIFEN.",
+      "no_copy": 0,
+      "print_hide": 0,
+      "report_hide": 0,
+      "reqd": 0,
+      "search_index": 0,
+      "translatable": 0,
+      "options": "\n1|Emisor de la factura\n2|Poseedor de la factura y bienes\n3|Empresa transportista\n4|Despachante de Aduanas\n5|Agente de transporte o intermediario"
+    }
+  ],
+  "property_setters": [],
+  "custom_perms": [],
+  "links": []
+}

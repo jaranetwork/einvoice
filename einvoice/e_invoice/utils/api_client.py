@@ -177,13 +177,14 @@ def validar_campos_sifen(doc, method=None):
     items_errors = validate_items_sifen_fields(doc, customer_country)
     errors.extend(items_errors)
 
-    # Validate Payments (only during on_submit, not during validate/save)
-    # Payment validation is now handled by validate_payment_sifen_fields in payment_validator.py
-    if hasattr(doc, 'docstatus') and doc.docstatus == 1:
-        # Validate payment fields for normal invoices
-        is_pos_invoice = hasattr(doc, 'is_pos') and doc.is_pos
-        payment_errors = validate_payment_sifen_fields(doc, is_pos_invoice, customer_country)
-        errors.extend(payment_errors)
+    if doctype == "Sales Invoice":
+      # Validate Payments (only during on_submit, not during validate/save)
+      # Payment validation is now handled by validate_payment_sifen_fields in payment_validator.py
+      if hasattr(doc, 'docstatus') and doc.docstatus == 1:
+          # Validate payment fields for normal invoices
+          is_pos_invoice = hasattr(doc, 'is_pos') and doc.is_pos
+          payment_errors = validate_payment_sifen_fields(doc, is_pos_invoice, customer_country)
+          errors.extend(payment_errors)
 
     # Validate Control Number
     control_errors = _validate_control_number(doc)

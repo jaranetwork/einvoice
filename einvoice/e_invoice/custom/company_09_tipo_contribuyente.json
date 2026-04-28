@@ -4,7 +4,7 @@
       "dt": "Company",
       "fieldname": "tipo_contribuyente",
       "fieldtype": "Select",
-      "label": "Tipo de Contribuyente",
+      "label": "SIFEN Tipo de Contribuyente",
       "insert_after": "sifen_column_2",
       "module": "E-Invoice",
       "options": "1|Persona Física\n2|Persona Jurídica",

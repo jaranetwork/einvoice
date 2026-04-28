@@ -5,7 +5,7 @@
       "dt": "Customer",
       "fieldname": "sifen_codigo_cliente",
       "fieldtype": "Data",
-      "label": "Código de Cliente",
+      "label": "SIFEN Código de Cliente",
       "insert_after": "customer_name",
       "module": "E-Invoice",
       "description": "Código único del cliente para SIFEN (se autogenera como CUST-YYYY-#####)",

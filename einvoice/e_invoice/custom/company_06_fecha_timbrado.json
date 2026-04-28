@@ -4,7 +4,7 @@
       "dt": "Company",
       "fieldname": "fecha_timbrado",
       "fieldtype": "Date",
-      "label": "Fecha de Timbrado",
+      "label": "SIFEN Fecha de Timbrado",
       "insert_after": "numero_timbrado",
       "module": "E-Invoice",
       "reqd": 1

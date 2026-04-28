@@ -5,7 +5,7 @@
       "dt": "Supplier",
       "fieldname": "sifen_tipo_constancias",
       "fieldtype": "Select",
-      "label": "Autofactura Tipo de Constancias SIFEN.",
+      "label": "SIFEN Autofactura Tipo de Constancias.",
       "insert_after": "sifen_tipo_autofactura",
       "module": "E-Invoice",
       "description": "Tipo de Constancias Autofactura según SIFEN: 1=Constancia de no ser contribuyente, 2=Constancia de microproductores",

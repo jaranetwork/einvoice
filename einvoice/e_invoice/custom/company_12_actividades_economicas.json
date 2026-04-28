@@ -3,7 +3,7 @@
     {
       "fieldname": "actividades_economicas_section",
       "fieldtype": "Section Break",
-      "label": "Actividades Económicas SIFEN",
+      "label": "SIFEN Actividades Económicas",
       "insert_after": "sifen_responsable_cargo",
       "dt": "Company",
       "module": "E-Invoice",

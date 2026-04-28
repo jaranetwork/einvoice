@@ -5,7 +5,7 @@
       "dt": "Supplier",
       "fieldname": "sifen_contribuyente",
       "fieldtype": "Check",
-      "label": "Es contribuyente?",
+      "label": "SIFEN Es contribuyente?",
       "insert_after": "tax_id",
       "module": "E-Invoice",
       "description": "Requerido por SIFEN - Indica si el proveedor es contribuyente del sistema de facturación electrónica",

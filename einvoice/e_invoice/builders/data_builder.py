@@ -66,7 +66,11 @@ def build_data_section(doc, company, establecimiento, punto, numero, fecha=None,
 
     # Build sections - build_cliente_section now returns cliente OR autoFactura based on doctype
     items = build_items_data(doc, moneda)
-    condicion = build_condicion_section(doc, moneda, condicion_tipo_cambio)
+    # Skip condition section for Delivery Note (no payment terms)
+    if doc.doctype == "Delivery Note":
+        condicion = {}
+    else:
+        condicion = build_condicion_section(doc, moneda, condicion_tipo_cambio)
 
     # Get other values
     usuario = _build_usuario(doc)
@@ -80,19 +84,19 @@ def build_data_section(doc, company, establecimiento, punto, numero, fecha=None,
 
     # Get description
     descripcion = _get_documento_descripcion(tipo_documento)
-
-    # Get observation
-    observacion = _get_observacion(doc)
+    
+    if doc.doctype != "Delivery Note":
+      # Get observation
+      observacion = _get_observacion(doc)
+      # Get advance and discount
+      anticipo_global = doc.total_advance
+      descuento_global = get_descuento_global(doc, moneda)
 
     # Build notaCreditoDebito section
     nota_credito_debito = _build_nota_credito_debito(doc, tipo_documento)
 
     # Build documentoAsociado section
-    documento_asociado = _build_documento_asociado(doc, tipo_documento)
-
-    # Get advance and discount
-    anticipo_global = doc.total_advance
-    descuento_global = get_descuento_global(doc, moneda)
+    documento_asociado = _build_documento_asociado(doc, tipo_documento)    
 
     # Get operation condition
     condicion_operacion = get_condicion_operacion(doc)
@@ -118,7 +122,6 @@ def build_data_section(doc, company, establecimiento, punto, numero, fecha=None,
         "numero": numero,
         "codigoSeguridadAleatorio": codigo_seguridad,
         "descripcion": descripcion,
-        "observacion": observacion,
         "fecha": fecha,
         "tipoEmision": _get_tipo_emision(doc),
         "tipoTransaccion": _get_tipo_transaccion(doc),
@@ -131,17 +134,18 @@ def build_data_section(doc, company, establecimiento, punto, numero, fecha=None,
         "items": items,
         "totalPago": total_pago
     }
-    
+
+    if doc.doctype != "Delivery Note":
+        data["observacion"] = observacion
+        # Add descuentoGlobal section if applicable
+        if descuento_global > 0:
+           data["descuentoGlobal"] = descuento_global
     # Add cliente section - for Purchase Invoice, also include autoFactura
     if is_purchase:
         data["cliente"] = cliente_section
         data["autoFactura"] = auto_factura_section
     else:
         data["cliente"] = cliente_section
-
-    # Add descuentoGlobal section if applicable
-    if descuento_global > 0:
-        data["descuentoGlobal"] = descuento_global
 
     # Add condicionAnticipo and anticipoGlobal section if applicable
     if get_condicion_anticipo(doc) is not None:
@@ -190,6 +194,15 @@ def _determine_document_type(doc):
             return 6  # Nota de Débito Autofactura
         else:
             return 4  # Autofactura electrónica
+    
+    # Delivery Note (tipoDocumento = 7)
+    elif doc.doctype == "Delivery Note":
+        if hasattr(doc, 'is_return') and doc.is_return:
+            # Note: Delivery Note returns are rare, but if they exist, they would be type 8
+            # For now, we'll treat them as regular delivery notes
+            return 7  # Nota de remisión electrónica
+        else:
+            return 7  # Nota de remisión electrónica
     
     # Sales Invoice
     if hasattr(doc, 'is_return') and doc.is_return:

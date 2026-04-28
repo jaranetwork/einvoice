@@ -4,7 +4,7 @@
       "dt": "Company",
       "fieldname": "numero_timbrado",
       "fieldtype": "Data",
-      "label": "Número de Timbrado",
+      "label": "SIFEN Número de Timbrado",
       "insert_after": "sifen_column_1",
       "module": "E-Invoice",
       "length": 50,

@@ -3,7 +3,7 @@
     {
       "fieldname": "responsable_sifen_section",
       "fieldtype": "Section Break",
-      "label": "Persona Responsable SIFEN",
+      "label": "SIFEN Persona Responsable",
       "insert_after": "tipo_regimen",
       "dt": "Company",
       "module": "E-Invoice",

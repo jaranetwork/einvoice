@@ -5,7 +5,7 @@
       "dt": "Supplier",
       "fieldname": "supplier_constancia_control",
       "fieldtype": "Data",
-      "label": "Autofactura SIFEN Constancia Control",
+      "label": "SIFEN Autofactura Constancia Control",
       "insert_after": "supplier_constancia_numero",
       "module": "E-Invoice",
       "description": "Constancia Número de Control según SIFEN",

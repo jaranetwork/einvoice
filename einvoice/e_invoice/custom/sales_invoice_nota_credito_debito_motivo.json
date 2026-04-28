@@ -5,7 +5,7 @@
       "dt": "Sales Invoice",
       "fieldname": "sifen_motivo_nota_credito_debito",
       "fieldtype": "Select",
-      "label": "Motivo Nota Crédito/Débito",
+      "label": "SIFEN Motivo Nota Crédito/Débito",
       "insert_after": "is_return",
       "module": "E-Invoice",
       "description": "Motivo de la Nota de Crédito/Débito según SIFEN",

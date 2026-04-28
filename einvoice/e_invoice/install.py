@@ -303,6 +303,9 @@ def after_install():
     # Create SIFEN IVA type field in Item Tax Template Detail (for item-level ivaTipo 1-4)
     create_sifen_tax_type_field_in_item_tax_template()
 
+    # Reorder address fields: Country below Address Line 2, State below Country
+    reorder_address_fields()
+
     print("\n" + "=" * 60)
     print("E-Invoice module installed successfully!")
     print("=" * 60)
@@ -414,6 +417,36 @@ def create_sifen_tax_type_field_in_item_tax_template():
         print(f"✗ Error creating SIFEN IVA type field in Item Tax Template Detail: {e}")
         import traceback
         traceback.print_exc()
+
+
+def reorder_address_fields():
+    """Reorder address fields for Paraguay SIFEN compliance by updating DocField idx values."""
+    import frappe
+
+    # Define field order: fieldname -> idx (position)
+    # Lower idx = higher position in the form
+    field_order = [
+        ("address_line1", 1),
+        ("address_line2", 2),
+        ("country", 3),
+        ("state", 4),
+        ("county", 5),
+        ("city", 6),
+    ]
+
+    for fieldname, new_idx in field_order:
+        # Update idx directly in DocField for standard fields
+        frappe.db.set_value(
+            "DocField",
+            {"parent": "Address", "fieldname": fieldname},
+            "idx",
+            new_idx
+        )
+        print(f"Updated idx for {fieldname} -> {new_idx}")
+
+    frappe.db.commit()
+    frappe.clear_cache(doctype='Address')
+    print("✓ Address field order updated successfully")
 
 
 def before_uninstall():

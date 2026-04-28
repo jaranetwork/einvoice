@@ -5,7 +5,7 @@
       "dt": "Supplier",
       "fieldname": "sifen_codigo_proveedor",
       "fieldtype": "Data",
-      "label": "Código de Proveedor",
+      "label": "SIFEN Código de Proveedor",
       "insert_after": "supplier_name",
       "module": "E-Invoice",
       "description": "Código único del proveedor para SIFEN (se autogenera como SUPP-YYYY-#####)",

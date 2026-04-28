@@ -5,7 +5,7 @@
       "dt": "Address",
       "fieldname": "sifen_numero_casa",
       "fieldtype": "Data",
-      "label": "Número de Casa",
+      "label": "SIFEN Número de Casa",
       "insert_after": "address_line1",
       "module": "E-Invoice",
       "length": 50

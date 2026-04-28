@@ -32,6 +32,7 @@ app_license = "gpl-3.0"
 doctype_js = {
     "Sales Invoice": "e_invoice/public/js/sales_invoice_combined.js",
     "Purchase Invoice": "e_invoice/public/js/purchase_invoice.js",
+    "Delivery Note": "e_invoice/public/js/delivery_note.js",
     "Address": "e_invoice/doctype/address/address.js"
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
@@ -150,6 +151,13 @@ doc_events = {
             "einvoice.e_invoice.utils.api_client.validar_campos_sifen",
         ],
         "on_cancel": "einvoice.e_invoice.doc_events.purchase_invoice.on_cancel",
+    },
+    "Delivery Note": {
+        "validate": [
+            "einvoice.e_invoice.utils.api_client.asignar_numero_control",
+            "einvoice.e_invoice.utils.api_client.validar_campos_sifen",
+        ],
+        "on_cancel": "einvoice.e_invoice.doc_events.delivery_note.on_cancel",
     }
     # "Sales Invoice": {
     #     "on_submit": "einvoice.e_invoice.doc_events.sales_invoice.generate_einvoice_manually",

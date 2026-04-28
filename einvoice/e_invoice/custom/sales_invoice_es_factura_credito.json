@@ -5,7 +5,7 @@
       "dt": "Sales Invoice",
       "fieldname": "es_factura_credito",
       "fieldtype": "Check",
-      "label": "Es Factura Crédito",
+      "label": "SIFEN Es Factura Crédito",
       "insert_after": "is_pos",
       "module": "E-Invoice",
       "description": "Los términos de pago deberán tener un plazo de pago",

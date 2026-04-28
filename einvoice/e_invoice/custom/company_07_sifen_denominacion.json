@@ -4,7 +4,7 @@
       "dt": "Company",
       "fieldname": "sifen_denominacion",
       "fieldtype": "Data",
-      "label": "Denominación",
+      "label": "SIFEN Denominación",
       "insert_after": "codigo_punto_expedicion_default",
       "module": "E-Invoice",
       "length": 200,

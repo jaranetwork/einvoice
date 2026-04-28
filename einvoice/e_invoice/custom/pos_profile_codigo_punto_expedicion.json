@@ -4,7 +4,7 @@
       "dt": "POS Profile",
       "fieldname": "codigo_punto_expedicion",
       "fieldtype": "Data",
-      "label": "Código Punto de Expedición",
+      "label": "SIFEN Código Punto de Expedición",
       "insert_after": "warehouse",
       "module": "E-Invoice",
       "length": 10,
