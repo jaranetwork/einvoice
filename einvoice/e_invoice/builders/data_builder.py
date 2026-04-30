@@ -4,7 +4,7 @@ Main orchestrator for data section construction.
 """
 
 import frappe
-from frappe.utils import now_datetime
+from frappe.utils import now_datetime, formatdate
 from ..helpers import (
     get_descuento_global,
     validar_moneda_sifen,
@@ -139,7 +139,23 @@ def build_data_section(doc, company, establecimiento, punto, numero, fecha=None,
         data["observacion"] = observacion
         # Add descuentoGlobal section if applicable
         if descuento_global > 0:
-           data["descuentoGlobal"] = descuento_global
+            data["descuentoGlobal"] = descuento_global
+    else:
+        remision = {
+            "motivo": _get_motivo_remision(doc),
+            "tipoResponsable": _extract_code_from_select(doc.delivery_note_responsable) if hasattr(doc, 'delivery_note_responsable') and doc.delivery_note_responsable else None,
+            "kms": _get_kms_from_delivery_note(doc),
+            "fechaFactura": formatdate(doc.posting_date, "yyyy-mm-dd") if hasattr(doc, 'posting_date') and doc.posting_date else None
+        }
+        # Remove None values
+        remision = {k: v for k, v in remision.items() if v is not None}
+        # Add remision section to data
+        data["remision"] = remision
+        
+        # Add transporte section for Delivery Note
+        transporte = _build_transporte_section(doc)
+        if transporte:
+            data["transporte"] = transporte
     # Add cliente section - for Purchase Invoice, also include autoFactura
     if is_purchase:
         data["cliente"] = cliente_section
@@ -431,4 +447,118 @@ def _get_tipo_transaccion(doc):
         except (ValueError, TypeError):
             pass
     return None
-    
+
+def _get_motivo_remision(doc):
+    motivo_remision_raw = getattr(doc, 'delivery_note_motivo', '')
+    if motivo_remision_raw:
+        motivo_remision_str = str(motivo_remision_raw).split('|')[0].strip()
+        try:
+            return int(motivo_remision_str)
+        except (ValueError, TypeError):
+            pass
+    return None
+
+
+def _extract_code_from_select(value):
+    """Extract numeric code from a Frappe select field value (format: 'code|Label')."""
+    if value and '|' in str(value):
+        code_str = str(value).split('|')[0].strip()
+        try:
+            return int(code_str)
+        except (ValueError, TypeError):
+            return code_str
+    return value
+
+
+def _get_kms_from_delivery_note(doc):
+    """
+    Get kilometers from linked Delivery Trip via Delivery Note's delivery stops.
+    Traverses: Delivery Note → Delivery Stop → Delivery Trip
+    """
+    try:
+        # Get all Delivery Stops linked to this Delivery Note
+        delivery_stops = frappe.get_all(
+            "Delivery Stop",
+            filters={"delivery_note": doc.name},
+            fields=["parent"]
+        )
+        
+        if not delivery_stops:
+            return None
+            
+        # Get unique parent Delivery Trip names
+        trip_names = list(set([stop.parent for stop in delivery_stops if stop.parent]))
+        
+        if not trip_names:
+            return None
+            
+        # Get kms from the first Delivery Trip that has it
+        for trip_name in trip_names:
+            trip_kms = frappe.db.get_value("Delivery Trip", trip_name, "delivery_trip_kms")
+            if trip_kms is not None and trip_kms != "":
+                try:
+                    return float(trip_kms)
+                except (ValueError, TypeError):
+                    continue
+                    
+        return None
+    except Exception:
+        return None
+
+
+def _build_transporte_section(doc):
+    """
+    Build transporte section for Delivery Note.
+    Extracts data from linked Delivery Trip via Delivery Stops.
+    """
+    try:
+        # Get Delivery Stops for this Delivery Note
+        delivery_stops = frappe.get_all(
+            "Delivery Stop",
+            filters={"delivery_note": doc.name},
+            fields=["parent", "estimated_arrival"],
+            order_by="estimated_arrival desc"
+        )
+        
+        if not delivery_stops:
+            return None
+        
+        # Get unique Delivery Trip names (first stop's parent is the main trip)
+        trip_name = delivery_stops[0].parent if delivery_stops[0].parent else None
+        if not trip_name:
+            return None
+        
+        # Get Delivery Trip fields
+        trip_fields = ["delivery_trip_tipo", "delivery_trip_modalidad", "departure_time"]
+        trip_data = frappe.db.get_value("Delivery Trip", trip_name, trip_fields, as_dict=True)
+        
+        if not trip_data:
+            return None
+        
+        # Build transporte dictionary
+        transporte = {}
+        
+        # tipo (from delivery_trip_tipo select field)
+        if trip_data.get("delivery_trip_tipo"):
+            tipo_code = _extract_code_from_select(trip_data.delivery_trip_tipo)
+            if tipo_code:
+                transporte["tipo"] = tipo_code
+        
+        # modalidad (from delivery_trip_modalidad select field)
+        if trip_data.get("delivery_trip_modalidad"):
+            modalidad_code = _extract_code_from_select(trip_data.delivery_trip_modalidad)
+            if modalidad_code:
+                transporte["modalidad"] = modalidad_code
+        
+        # inicioEstimadoTranslado (format: YYYY-MM-DD)
+        if trip_data.get("departure_time"):
+            transporte["inicioEstimadoTranslado"] = formatdate(trip_data.departure_time, "yyyy-mm-dd")
+        
+        # finEstimadoTranslado - get latest estimated_arrival from stops
+        if delivery_stops and delivery_stops[0].get("estimated_arrival"):
+            transporte["finEstimadoTranslado"] = formatdate(delivery_stops[0].estimated_arrival, "yyyy-mm-dd")
+        
+        return transporte if transporte else None
+        
+    except Exception:
+        return None

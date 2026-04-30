@@ -2,18 +2,18 @@
   "doctype": "Custom Field",
   "custom_fields": [
     {
-      "dt": "Delivery Note",
-      "fieldname": "delivery_note_kms",
+      "dt": "Delivery Trip",
+      "fieldname": "delivery_trip_kms",
       "fieldtype": "Data",
       "label": "SIFEN distancia en kilómetros",
-      "insert_after": "delivery_note_responsable",
+      "insert_after": "driver_address",
       "module": "E-Invoice",
       "description": "Distancia en kilómetros según SIFEN",
       "length": 8,
       "no_copy": 0,
       "print_hide": 0,
       "report_hide": 0,
-      "reqd": 0,
+      "reqd": 1,
       "search_index": 0,
       "translatable": 0
     }
