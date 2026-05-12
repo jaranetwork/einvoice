@@ -110,6 +110,16 @@ def generate_einvoice_manually_button(invoice_name, regenerate=False):
     if delivery_note.docstatus != 1:
         frappe.throw(_("Cannot generate E-Invoice for a draft invoice. Please submit the invoice first."))
 
+    # Validate that a Delivery Trip exists
+    has_trip = frappe.db.exists("Delivery Stop", {"delivery_note": delivery_note.name})
+    if not has_trip:
+        frappe.throw(
+            _("Cannot generate E-Invoice without a Delivery Trip.<br><br>"
+              "Please create a <b>Delivery Trip</b> (Viaje de Entrega) "
+              "with a Delivery Stop linked to this Delivery Note first."),
+            title=_("Delivery Trip Required")
+        )
+
     # Validate required fields before sending to external API
     validate_invoice_for_einvoice(delivery_note)
 

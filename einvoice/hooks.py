@@ -90,6 +90,9 @@ before_uninstall = "einvoice.e_invoice.install.before_uninstall"
 # before_app_install = "einvoice.utils.before_app_install"
 # after_app_install = "einvoice.utils.after_app_install"
 
+# Runs after each bench migrate (including Docker startup)
+after_migrate = "einvoice.e_invoice.helpers.naming_helper.configure_7_digit_naming_series"
+
 # Integration Cleanup
 # -------------------
 # To clean up dependencies/integrations with other apps

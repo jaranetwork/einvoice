@@ -5,6 +5,7 @@ Creates custom fields and child table required for SIFEN integration.
 import frappe
 import json
 import os
+from .helpers.naming_helper import configure_7_digit_naming_series
 
 
 def create_child_table_doctype():
@@ -269,6 +270,13 @@ def create_workspace():
             "color": "Blue"
         })
 
+        workspace.append("shortcuts", {
+            "label": "SIFEN Control Registry",
+            "link_to": "SIFEN Control Number",
+            "type": "DocType",
+            "color": "Green"
+        })
+
         # Add links
         workspace.append("links", {
             "label": "E-Invoice Settings",
@@ -278,14 +286,72 @@ def create_workspace():
             "onboard": 1
         })
 
+        workspace.append("links", {
+            "label": "SIFEN Control Registry",
+            "link_to": "SIFEN Control Number",
+            "link_type": "DocType",
+            "type": "Link",
+            "onboard": 0
+        })
+
         # Content for EditorJS
-        workspace.content = '[{"id":"Fq7G8Kx9mZ","type":"header","data":{"text":"<span class=\\"h4\\">E-Invoice Configuration</span>","col":12}},{"id":"Np2L5Rw3vT","type":"shortcut","data":{"shortcut_name":"E-Invoice Settings","col":4}}]'
+        workspace.content = '[{"id":"Fq7G8Kx9mZ","type":"header","data":{"text":"<span class=\\"h4\\">E-Invoice Configuration</span>","col":12}},{"id":"Np2L5Rw3vT","type":"shortcut","data":{"shortcut_name":"E-Invoice Settings","col":4}},{"id":"Xz1Yw2Vn3Q","type":"shortcut","data":{"shortcut_name":"SIFEN Control Registry","col":4}}]'
 
         workspace.insert()
         frappe.db.commit()
         print(f"Created Workspace: {workspace_name} (child of Accounting)")
     except Exception as e:
         print(f"Error creating Workspace {workspace_name}: {str(e)}")
+
+
+def create_sifen_control_number_doctype():
+    """Create the SIFEN Control Number DocType if it doesn't exist."""
+    doctype_name = "SIFEN Control Number"
+
+    if frappe.db.exists("DocType", doctype_name):
+        print(f"DocType {doctype_name} already exists")
+        return
+
+    try:
+        json_path = os.path.join(
+            os.path.dirname(__file__),
+            "doctype",
+            "sifen_control_number",
+            "sifen_control_number.json"
+        )
+
+        with open(json_path, "r") as f:
+            doctype_data = json.load(f)
+
+        doctype = frappe.get_doc(doctype_data)
+        doctype.insert()
+        frappe.db.commit()
+        print(f"Created DocType: {doctype_name}")
+    except Exception as e:
+        print(f"Error creating DocType {doctype_name}: {str(e)}")
+
+
+def create_unique_index_on_sifen_control_number():
+    """Create composite unique index on (company, control_number) for O(1) lookup."""
+    print("\nCreating unique index on SIFEN Control Number...")
+
+    try:
+        existing_indexes = frappe.db.sql("""
+            SHOW INDEX FROM `tabSIFEN Control Number`
+            WHERE Key_name = 'idx_company_control_number'
+        """, as_dict=True)
+
+        if existing_indexes:
+            print("Index idx_company_control_number already exists")
+        else:
+            frappe.db.sql("""
+                ALTER TABLE `tabSIFEN Control Number`
+                ADD UNIQUE INDEX `idx_company_control_number` (`company`, `control_number`)
+            """)
+            frappe.db.commit()
+            print("Created unique index: idx_company_control_number")
+    except Exception as e:
+        print(f"Note (SIFEN Control Number): {e}")
 
 
 def after_install():
@@ -295,10 +361,13 @@ def after_install():
     print("=" * 60)
 
     create_child_table_doctype()
+    create_sifen_control_number_doctype()
     create_custom_fields()
     create_property_setters()
     create_workspace()
     create_unique_index_on_numero_control()
+    create_unique_index_on_sifen_control_number()
+    configure_7_digit_naming_series()
 
     # Create SIFEN IVA type field in Item Tax Template Detail (for item-level ivaTipo 1-4)
     create_sifen_tax_type_field_in_item_tax_template()
@@ -506,6 +575,11 @@ def before_uninstall():
         frappe.delete_doc("DocType", "E-Invoice Actividad Economica", force=True)
         print("Deleted Child Table: E-Invoice Actividad Economica")
 
+    # Delete SIFEN Control Number doctype
+    if frappe.db.exists("DocType", "SIFEN Control Number"):
+        frappe.delete_doc("DocType", "SIFEN Control Number", force=True)
+        print("Deleted DocType: SIFEN Control Number")
+
     # Delete workspace
     if frappe.db.exists("Workspace", "E-Invoice"):
         frappe.delete_doc("Workspace", "E-Invoice", force=True)
@@ -513,6 +587,9 @@ def before_uninstall():
 
     # Drop unique index on custom_numero_control
     drop_unique_index_on_numero_control()
+
+    # Drop unique index on SIFEN Control Number
+    drop_unique_index_on_sifen_control_number()
 
     frappe.db.commit()
     
@@ -559,6 +636,20 @@ def drop_unique_index_on_numero_control():
         print("Dropped unique index: idx_company_numero_control in Purchase Invoice")
     except Exception as e:
         print(f"Note (Purchase Invoice): {e}")
+
+
+def drop_unique_index_on_sifen_control_number():
+    """Drop unique index on SIFEN Control Number during uninstall."""
+    print("\nDropping unique index on SIFEN Control Number...")
+    try:
+        frappe.db.sql("""
+            ALTER TABLE `tabSIFEN Control Number`
+            DROP INDEX `idx_company_control_number`
+        """)
+        frappe.db.commit()
+        print("Dropped unique index: idx_company_control_number")
+    except Exception as e:
+        print(f"Note (SIFEN Control Number): {e}")
 
 
 if __name__ == "__main__":

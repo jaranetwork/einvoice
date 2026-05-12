@@ -39,8 +39,10 @@ def validate_payment_sifen_fields(doc, is_pos_invoice, customer_country):
         errors.extend(normal_errors)
 
     # Validate credit days for credit operations
-    credit_errors = _validate_credit_days(doc, customer_country)
-    errors.extend(credit_errors)
+    # Validate "Es Factura Crédito" requires payment terms with plazo
+    if hasattr(doc, 'es_factura_credito') and doc.es_factura_credito:
+        credit_errors = _validate_credit_days(doc, customer_country)
+        errors.extend(credit_errors)
 
     return errors
 

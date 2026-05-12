@@ -25,12 +25,19 @@ def create_einvoice_workspace():
     workspace.sequence_id = 25.0
     workspace.parent_page = ""
     
-    # Agregar shortcut
+    # Agregar shortcuts
     workspace.append("shortcuts", {
         "label": "E-Invoice Settings",
         "link_to": "E-Invoice Setting",
         "type": "DocType",
         "color": "Blue"
+    })
+
+    workspace.append("shortcuts", {
+        "label": "SIFEN Control Registry",
+        "link_to": "SIFEN Control Number",
+        "type": "DocType",
+        "color": "Green"
     })
     
     # Agregar links
@@ -41,9 +48,17 @@ def create_einvoice_workspace():
         "type": "Link",
         "onboard": 1
     })
+
+    workspace.append("links", {
+        "label": "SIFEN Control Registry",
+        "link_to": "SIFEN Control Number",
+        "link_type": "DocType",
+        "type": "Link",
+        "onboard": 0
+    })
     
     # Contenido para EditorJS
-    workspace.content = '[{"id":"Fq7G8Kx9mZ","type":"header","data":{"text":"<span class=\\"h4\\">E-Invoice Configuration</span>","col":12}},{"id":"Np2L5Rw3vT","type":"shortcut","data":{"shortcut_name":"E-Invoice Settings","col":4}}]'
+    workspace.content = '[{"id":"Fq7G8Kx9mZ","type":"header","data":{"text":"<span class=\\"h4\\">E-Invoice Configuration</span>","col":12}},{"id":"Np2L5Rw3vT","type":"shortcut","data":{"shortcut_name":"E-Invoice Settings","col":4}},{"id":"Xz1Yw2Vn3Q","type":"shortcut","data":{"shortcut_name":"SIFEN Control Registry","col":4}}]'
     
     workspace.insert()
     frappe.db.commit()

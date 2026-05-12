@@ -558,7 +558,52 @@ def _build_transporte_section(doc):
         if delivery_stops and delivery_stops[0].get("estimated_arrival"):
             transporte["finEstimadoTranslado"] = formatdate(delivery_stops[0].estimated_arrival, "yyyy-mm-dd")
         
+        # salida: company address from Delivery Note
+        salida = _build_address_block(getattr(doc, 'company_address', None))
+        if salida:
+            transporte["salida"] = salida
+        
+        # entrega: customer billing address from Delivery Note
+        entrega = _build_address_block(getattr(doc, 'customer_address', None))
+        if entrega:
+            transporte["entrega"] = entrega
+        
         return transporte if transporte else None
         
     except Exception:
         return None
+
+
+def _build_address_block(address_name):
+    """Build address block for transporte.salida/entrega from an Address document."""
+    if not address_name:
+        return None
+
+    try:
+        address = frappe.get_doc("Address", address_name)
+    except Exception:
+        return None
+
+    from ..utils.utils import get_paraguay_location_codes
+    location_codes = get_paraguay_location_codes(
+        address.state or "",
+        address.county or "",
+        address.city or "",
+        address.country or "Paraguay"
+    )
+
+    return {
+        "direccion": address.address_line1 or "",
+        "numeroCasa": getattr(address, 'sifen_numero_casa', '') or "",
+        "complementoDireccion1": address.address_line2 or "",
+        "complementoDireccion2": "",
+        "departamento": location_codes.get("departamento"),
+        "departamentoDescripcion": location_codes.get("departamentoDescripcion"),
+        "distrito": location_codes.get("distrito"),
+        "distritoDescripcion": location_codes.get("distritoDescripcion"),
+        "ciudad": location_codes.get("ciudad"),
+        "ciudadDescripcion": location_codes.get("ciudadDescripcion"),
+        "pais": "PRY",
+        "paisDescripcion": "Paraguay",
+        "telefonoContacto": address.phone or ""
+    }

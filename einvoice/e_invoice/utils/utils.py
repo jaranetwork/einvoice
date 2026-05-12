@@ -7,7 +7,7 @@ import frappe
 import requests
 import base64
 from frappe import _
-from frappe.utils import now_datetime
+from frappe.utils import now_datetime, flt
 
 # Constants
 SIFEN_API_TIMEOUT = 30
@@ -89,8 +89,10 @@ def get_condicion_operacion(sales_invoice):
         return 1  # Contado (already paid)
     
     # Check outstanding amount
-    if hasattr(sales_invoice, 'outstanding_amount') and sales_invoice.outstanding_amount:
-        return 2  # Crédito
+    if hasattr(sales_invoice, 'outstanding_amount') and sales_invoice.outstanding_amount is not None:
+        if flt(sales_invoice.outstanding_amount) <= 0:
+            return 1  # Contado (fully paid)
+        return 2  # Crédito (outstanding balance)
     
     # Check payment terms
     if hasattr(sales_invoice, 'payment_terms_template') and sales_invoice.payment_terms_template:
