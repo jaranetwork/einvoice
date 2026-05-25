@@ -22,7 +22,8 @@
    "label": "Control Number",
    "length": 9,
    "reqd": 1,
-   "search_index": 1
+   "search_index": 1,
+   "width": "100"
   },
   {
    "fieldname": "company",
@@ -30,7 +31,8 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Company",
-   "options": "Company"
+   "options": "Company",
+   "width": "150"
   },
   {
    "fieldname": "section_audit",
@@ -43,13 +45,15 @@
    "in_list_view": 1,
    "label": "Reference Doctype",
    "options": "\nSales Invoice\nPurchase Invoice\nDelivery Note",
-   "read_only": 1
+   "read_only": 1,
+   "width": "120"
   },
   {
    "fieldname": "reference_docname",
    "fieldtype": "Data",
    "label": "Reference Document",
-   "read_only": 1
+   "read_only": 1,
+   "width": "150"
   },
   {
    "fieldname": "assigned_on",

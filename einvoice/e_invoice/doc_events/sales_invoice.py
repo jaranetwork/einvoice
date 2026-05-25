@@ -172,6 +172,14 @@ def validate_invoice_for_einvoice(sales_invoice):
     if not company.tax_id:
         errors.append(_("Company Tax ID (RUC) is missing in Company {0}").format(sales_invoice.company))
 
+    # Validate SIFEN Tipo de Transacción
+    if not sales_invoice.get('sifen_tipo_transaccion'):
+        errors.append(_(
+            "SIFEN Tipo de Transacción is required for E-Invoice generation.<br><br>"
+            "Please select the transaction type in the <strong>Tipo de Transacción</strong> field "
+            "before generating the E-Invoice."
+        ))
+
     # Validate Customer
     if not sales_invoice.customer:
         errors.append(_("Customer is required"))

@@ -20,7 +20,8 @@
       "no_copy": 0,
       "print_hide": 0,
       "report_hide": 0,
-      "reqd": 1,
+      "allow_on_submit": 1,
+      "reqd": 0,
       "search_index": 0,
       "translatable": 0,
       "options": "\n1|Venta de mercadería\n2|Prestación de servicios\n3|Mixto\n4|Venta de activo fijo\n5|Venta de divisas\n6|Compra de divisas\n7|Promoción o muestra\n8|Donación\n9|Anticipo\n10|Compra de productos\n11|Compra de servicios\n12|Venta de crédito fiscal"
