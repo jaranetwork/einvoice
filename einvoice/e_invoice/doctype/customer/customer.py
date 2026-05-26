@@ -5,6 +5,20 @@ import frappe
 from frappe import _
 from frappe.utils import now_datetime
 
+def validate(doc, method=None):
+    validate_customer_group_for_sifen(doc)
+
+def validate_customer_group_for_sifen(doc):
+    if doc.customer_group == "All Customer Groups":
+        frappe.throw(_(
+            "Debe seleccionar una Categoría de Cliente específica para SIFEN.<br><br>"
+            "Opciones válidas:<br>"
+            "1- Comercial (B2B)<br>"
+            "2- Gubernamental (B2G)<br>"
+            "3- Persona Física (B2C)<br>"
+            "4- Sin fines de lucro (B2F)"
+        ))
+
 def before_insert(doc, method=None):
     """
     Generate SIFEN customer code automatically before inserting Customer.

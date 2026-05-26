@@ -260,7 +260,11 @@ def create_workspace():
         workspace.is_hidden = 0
         workspace.icon = "file"
         workspace.sequence_id = 25.0
-        workspace.parent_page = "Accounting"  # Make it a child of Accounting
+        # Make it a child of Accounting if that workspace exists
+        if frappe.db.exists("Workspace", "Accounting"):
+            workspace.parent_page = "Accounting"
+        else:
+            print("Note: 'Accounting' workspace not found, creating E-Invoice as top-level workspace")
 
         # Add shortcut
         workspace.append("shortcuts", {

@@ -137,6 +137,7 @@ doc_events = {
     },
     "Customer": {
         "before_insert": "einvoice.e_invoice.doctype.customer.customer.before_insert",
+        "validate": "einvoice.e_invoice.doctype.customer.customer.validate",
     },
     "Supplier": {
         "before_insert": "einvoice.e_invoice.doctype.supplier.supplier.before_insert",

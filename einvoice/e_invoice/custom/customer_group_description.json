@@ -1,0 +1,24 @@
+{
+  "doctype": "Custom Field",
+  "property_setters": [
+    {
+      "doc_type": "Customer",
+      "field_name": "customer_group",
+      "property": "description",
+      "value": "1- Comercial (B2B). 2- Gubernamental (B2G). 3- Persona Física (B2C). 4- Sin fines de lucro (B2F).",
+      "property_type": "Text",
+      "doctype_or_field": "DocField"
+    },
+    {
+      "doc_type": "Customer",
+      "field_name": "customer_group",
+      "property": "reqd",
+      "value": "1",
+      "property_type": "Check",
+      "doctype_or_field": "DocField"
+    }
+  ],
+  "custom_fields": [],
+  "custom_perms": [],
+  "links": []
+}

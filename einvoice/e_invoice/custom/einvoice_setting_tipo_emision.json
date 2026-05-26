@@ -16,7 +16,7 @@
       "search_index": 0,
       "translatable": 0,
       "options": "1|Normal\n2|Contingencia",
-      "default": "1"
+      "default": "1|Normal"
     }
   ],
   "property_setters": [],
