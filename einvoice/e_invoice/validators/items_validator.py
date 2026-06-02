@@ -60,9 +60,16 @@ def _validate_item_tax_template(item, item_num, customer_country):
     if hasattr(item, 'item_tax_template') and item.item_tax_template:
         tax_template_name = item.item_tax_template
     else:
-        # Try to get from Item master
+        # Try to get from Item master's Item Tax child table
         try:
-            tax_template_name = frappe.db.get_value("Item", item.item_code, "item_tax_template")
+            item_taxes = frappe.db.get_all(
+                "Item Tax",
+                filters={"parent": item.item_code},
+                fields=["item_tax_template"],
+                limit=1
+            )
+            if item_taxes:
+                tax_template_name = item_taxes[0].item_tax_template
         except Exception:
             pass
     

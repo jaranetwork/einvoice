@@ -112,9 +112,9 @@ frappe.ui.form.on('Purchase Invoice', {
             }, __('E-Invoice'));
         }
 
-        // Add Vista Previa HTML button (works for any saved invoice)
+        // Add HTML Preview button (works for any saved invoice)
         if (!frm.doc.__islocal) {
-            frm.add_custom_button(__('👁️ Vista Previa HTML'), () => {
+            frm.add_custom_button(__('👁️ HTML Preview'), () => {
                 frappe.call({
                     method: 'einvoice.e_invoice.doc_events.purchase_invoice.get_einvoice_preview_html',
                     args: {
@@ -123,7 +123,7 @@ frappe.ui.form.on('Purchase Invoice', {
                     callback: function(r) {
                         if (r.message) {
                             let dialog = new frappe.ui.Dialog({
-                                title: __('Vista Previa SIFEN'),
+                                title: __('SIFEN Preview'),
                                 size: 'extra-large',
                                 fields: [{
                                     fieldname: 'preview_html',

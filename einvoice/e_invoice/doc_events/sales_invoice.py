@@ -126,7 +126,17 @@ def generate_einvoice_manually_button(invoice_name, regenerate=False):
             message = result["message"]
             if regenerate:
                 message = _("E-Invoice regenerated and sent to SIFEN successfully!<br><br>") + message
-            
+
+            # Enqueue background job to check status periodically
+            factura_id = result.get("data", {}).get("facturaId")
+            if factura_id:
+                frappe.enqueue(
+                    "einvoice.e_invoice.utils.api_client.check_invoice_status_background",
+                    invoice_name=invoice_name,
+                    factura_id=factura_id,
+                    user=frappe.session.user,
+                )
+
             frappe.msgprint(
                 message,
                 title="E-Invoice Generated" if not regenerate else "E-Invoice Regenerated",
@@ -179,6 +189,19 @@ def validate_invoice_for_einvoice(sales_invoice):
             "Please select the transaction type in the <strong>Tipo de Transacción</strong> field "
             "before generating the E-Invoice."
         ))
+
+    # Validate: Contado invoices must be fully paid before e-invoice generation
+    from frappe.utils import flt
+    from einvoice.e_invoice.utils.utils import get_condicion_operacion
+
+    condicion = get_condicion_operacion(sales_invoice)
+    if condicion == 1 and flt(sales_invoice.outstanding_amount) > 0:
+        errors.append(_(
+            "Cannot generate E-Invoice for a Contado invoice that has not been fully paid.<br><br>"
+            "This invoice is classified as <strong>Contado</strong> (payment condition = 1) "
+            "but still has an outstanding balance of <strong>{0}</strong>.<br><br>"
+            "Please register the payment before generating the E-Invoice."
+        ).format(frappe.utils.fmt_money(sales_invoice.outstanding_amount, currency=sales_invoice.currency)))
 
     # Validate Customer
     if not sales_invoice.customer:

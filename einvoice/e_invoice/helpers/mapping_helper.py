@@ -115,14 +115,17 @@ def get_sifen_tipo_iva_item(item_code, item_tax_template=None, sales_invoice=Non
     if not item_code:
         return 1, 10.0
     
-    # Get item's tax template from parameter or fetch from Item
+    # Get item's tax template from parameter or fetch from Item's Item Tax child table
     if not item_tax_template:
         try:
-            item_tax_template = frappe.db.get_value(
-                "Item",
-                item_code,
-                "item_tax_template"
+            item_taxes = frappe.db.get_all(
+                "Item Tax",
+                filters={"parent": item_code},
+                fields=["item_tax_template"],
+                limit=1
             )
+            if item_taxes:
+                item_tax_template = item_taxes[0].item_tax_template
         except Exception:
             item_tax_template = None
     

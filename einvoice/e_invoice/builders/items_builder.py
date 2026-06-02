@@ -44,7 +44,7 @@ def _build_item_data(item, sales_invoice, moneda):
     # Get tax template
     item_tax_template = _get_item_tax_template(item, item_details)
     
-    # Get SIFEN IVA data
+    # Get SIFEN IVA data from Item Tax Template
     iva_tipo, iva_tasa = get_sifen_tipo_iva_item(item.item_code, item_tax_template, sales_invoice)
     
     # Determine IVA proportion
@@ -94,26 +94,38 @@ def _build_item_data(item, sales_invoice, moneda):
     return item
 
 def _get_item_tax_template(item, item_details):
-    """Get item tax template from item or item master."""
+    """Get item tax template from item row, item_details, or Item Tax child table."""
     if hasattr(item, 'item_tax_template') and item.item_tax_template:
         return item.item_tax_template
-    
-    if item_details and hasattr(item_details, 'item_tax_template'):
+
+    if item_details and item_details.get("item_tax_template"):
         return item_details.item_tax_template
-    
+
+    try:
+        item_taxes = frappe.db.get_all(
+            "Item Tax",
+            filters={"parent": item.item_code},
+            fields=["item_tax_template"],
+            limit=1
+        )
+        if item_taxes:
+            return item_taxes[0].item_tax_template
+    except Exception:
+        pass
+
     return None
 
 
 def _get_iva_proporcion(iva_tipo):
     """Determine IVA proportion based on IVA type."""
-    if iva_tipo in [3, 4]:  # Exento/Ninguno
+    if iva_tipo == 3:  # Exento
         return 0
     return 100  # Gravado/Exonerado
 
 
 def _get_iva_rate(iva_tipo, iva_tasa):
     """Get actual IVA rate based on type."""
-    if iva_tipo in [1, 5]:  # IVA or IVA-Renta
+    if iva_tipo in [1, 4]:  # Gravado, Gravado parcial
         return iva_tasa
     return 0  # ISC, Exento, Ninguno
 

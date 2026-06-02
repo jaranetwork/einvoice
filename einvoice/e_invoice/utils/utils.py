@@ -84,35 +84,44 @@ def get_condicion_operacion(sales_invoice):
     Returns:
         int: Payment condition (1-2)
     """
-    # Check is_paid for Purchase Invoice
-    if hasattr(sales_invoice, 'is_paid') and sales_invoice.is_paid:
-        return 1  # Contado (already paid)
-    
-    # Check outstanding amount
+    # Check if fully paid → Contado
     if hasattr(sales_invoice, 'outstanding_amount') and sales_invoice.outstanding_amount is not None:
         if flt(sales_invoice.outstanding_amount) <= 0:
             return 1  # Contado (fully paid)
-        return 2  # Crédito (outstanding balance)
-    
+
+    # Check is_paid for Purchase Invoice
+    if hasattr(sales_invoice, 'is_paid') and sales_invoice.is_paid:
+        return 1  # Contado (already paid)
+
     # Check payment terms
     if hasattr(sales_invoice, 'payment_terms_template') and sales_invoice.payment_terms_template:
         return 2  # Crédito
-    
+
     # Check payment schedule
     if hasattr(sales_invoice, 'payment_schedule') and sales_invoice.payment_schedule:
         # Multiple payment schedules = Crédito
         if len(sales_invoice.payment_schedule) > 1:
             return 2
-        
+
         # Single schedule with future due date = Crédito
         if sales_invoice.payment_schedule[0].due_date:
             from frappe.utils import date_diff
             days = date_diff(sales_invoice.payment_schedule[0].due_date, sales_invoice.posting_date)
             if days > 0:
                 return 2
-    
+
     # Default: Contado
     return 1
+
+
+def _clean_credito_info(credito_info):
+    """Remove keys not relevant to the credit tipo."""
+    if credito_info.get("tipo") == 1:
+        credito_info.pop("cuotas", None)
+        credito_info.pop("infoCuotas", None)
+    elif credito_info.get("tipo") == 2:
+        credito_info.pop("plazo", None)
+    return credito_info
 
 
 def get_credito_info(sales_invoice):
@@ -162,7 +171,7 @@ def get_credito_info(sales_invoice):
             credito_info["tipo"] = 1  # Plazo (días)
             if total_days > 0:
                 credito_info["plazo"] = str(total_days)
-            return credito_info
+            return _clean_credito_info(credito_info)
 
         # Multiple payment terms or partial payments → tipo 2 (Cuotas)
         if len(sales_invoice.payment_schedule) > 1 or (has_100_percent is False and len(sales_invoice.payment_schedule) == 1):
@@ -188,13 +197,13 @@ def get_credito_info(sales_invoice):
                 info_cuotas.append(info_cuota)
 
             credito_info["infoCuotas"] = info_cuotas
-            return credito_info
+            return _clean_credito_info(credito_info)
 
         # Single term but not 100% - use days if available
         if total_days > 0:
             credito_info["tipo"] = 1  # Plazo (días)
             credito_info["plazo"] = str(total_days)
-            return credito_info
+            return _clean_credito_info(credito_info)
 
     # Try to get from payment terms template
     if hasattr(sales_invoice, 'payment_terms_template') and sales_invoice.payment_terms_template:
@@ -210,7 +219,7 @@ def get_credito_info(sales_invoice):
                             credito_info["tipo"] = 1  # Plazo (días)
                             if hasattr(term, 'credit_days') and term.credit_days:
                                 credito_info["plazo"] = str(int(term.credit_days))
-                            return credito_info
+                            return _clean_credito_info(credito_info)
                 
                 # Multiple terms → Cuotas
                 credito_info["tipo"] = 2  # Cuotas
@@ -236,7 +245,7 @@ def get_credito_info(sales_invoice):
                     info_cuotas.append(info_cuota)
 
                 credito_info["infoCuotas"] = info_cuotas
-                return credito_info
+                return _clean_credito_info(credito_info)
         except Exception:
             pass
 
@@ -250,11 +259,11 @@ def get_credito_info(sales_invoice):
                     if days > 0:
                         credito_info["tipo"] = 1  # Plazo (días)
                         credito_info["plazo"] = str(days)
-                        return credito_info
+                        return _clean_credito_info(credito_info)
                 except Exception:
                     pass
 
-    return credito_info
+    return _clean_credito_info(credito_info)
 
 
 def get_condicion_entregas(doc, moneda, condicion_tipo_cambio=None):

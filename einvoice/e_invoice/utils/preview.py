@@ -176,7 +176,7 @@ def _build_html(param, data, doc, doctype):
         <!-- Header -->
         <div style="background: #1a73e8; color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center;">
             <div>
-                <h2 style="margin: 0; font-size: 22px;">{doc_type_label} - Vista Previa SIFEN</h2>
+                <h2 style="margin: 0; font-size: 22px;">{doc_type_label} - SIFEN Preview</h2>
                 <p style="margin: 5px 0 0; opacity: 0.9;">{doc.name}</p>
             </div>
             <div style="text-align: right;">
@@ -282,8 +282,8 @@ def _build_html(param, data, doc, doctype):
 
         <!-- Footer -->
         <div style="padding: 15px 20px; background: #f8f9fa; text-align: center; color: #888; font-size: 12px; border-top: 1px solid #e0e0e0;">
-            {_('Vista previa generada desde los datos de la factura - No es documento oficial')}<br/>
-            {_('Para generar el documento oficial, envíe a SIFEN y descargue el KUDE')}
+            {_('Preview generated from invoice data - Not an official document')}<br/>
+            {_('To generate the official document, send to SIFEN and download the KUDE')}
         </div>
     </div>
     """
@@ -333,7 +333,8 @@ def _build_items_html(items):
 def _build_payments_html(condicion):
     """Build HTML for payments section."""
     entregas = condicion.get('entregas', [])
-    if not entregas:
+    credito = condicion.get('credito')
+    if not entregas and not credito:
         return ""
 
     condicion_op = condicion.get('tipo', 1)
@@ -343,25 +344,29 @@ def _build_payments_html(condicion):
         <h3 style="margin: 0 0 15px; color: #333; font-size: 16px;">
             {_('Forma de Pago')}: {_get_condicion_operacion_desc(condicion_op)}
         </h3>
+    """
+
+    if entregas:
+        html += """
         <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
             <thead>
                 <tr style="background: #e8eef5;">
-                    <th style="padding: 8px; text-align: left; border-bottom: 2px solid #1a73e8;">{_('Tipo Pago')}</th>
-                    <th style="padding: 8px; text-align: right; border-bottom: 2px solid #1a73e8;">{_('Monto')}</th>
-                    <th style="padding: 8px; text-align: right; border-bottom: 2px solid #1a73e8;">{_('Moneda')}</th>
-                    <th style="padding: 8px; text-align: right; border-bottom: 2px solid #1a73e8;">{_('Tipo Cambio')}</th>
+                    <th style="padding: 8px; text-align: left; border-bottom: 2px solid #1a73e8;">""" + _('Tipo Pago') + """</th>
+                    <th style="padding: 8px; text-align: right; border-bottom: 2px solid #1a73e8;">""" + _('Monto') + """</th>
+                    <th style="padding: 8px; text-align: right; border-bottom: 2px solid #1a73e8;">""" + _('Moneda') + """</th>
+                    <th style="padding: 8px; text-align: right; border-bottom: 2px solid #1a73e8;">""" + _('Tipo Cambio') + """</th>
                 </tr>
             </thead>
             <tbody>
-    """
+        """
 
-    for entrega in entregas:
-        tipo_pago = entrega.get('tipo', 1)
-        monto = entrega.get('monto', 0)
-        moneda = entrega.get('moneda', 'PYG')
-        cambio = entrega.get('cambio', 0)
+        for entrega in entregas:
+            tipo_pago = entrega.get('tipo', 1)
+            monto = entrega.get('monto', 0)
+            moneda = entrega.get('moneda', 'PYG')
+            cambio = entrega.get('cambio', 0)
 
-        html += f"""
+            html += f"""
                 <tr>
                     <td style="padding: 8px; border-bottom: 1px solid #eee;">{_get_tipo_pago_desc(tipo_pago)}</td>
                     <td style="padding: 8px; text-align: right; border-bottom: 1px solid #eee; font-weight: bold;">
@@ -370,11 +375,88 @@ def _build_payments_html(condicion):
                     <td style="padding: 8px; text-align: right; border-bottom: 1px solid #eee;">{moneda}</td>
                     <td style="padding: 8px; text-align: right; border-bottom: 1px solid #eee;">{cambio}</td>
                 </tr>
-        """
+            """
 
-    html += """
+        html += """
             </tbody>
         </table>
+        """
+
+    # Credit info section
+    if credito:
+        credito_tipo = credito.get('tipo', 1)
+        if credito_tipo == 1:
+            plazo = credito.get('plazo', '')
+            html += f"""
+        <div style="margin-top: 15px; padding: 15px; background: #fff3e0; border-radius: 6px;">
+            <h4 style="margin: 0 0 10px; color: #e65100; font-size: 14px;">{_('Información de Crédito - Plazo')}</h4>
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <tr>
+                    <td style="padding: 6px; width: 20%;"><strong>{_('Plazo')}:</strong></td>
+                    <td style="padding: 6px;">{plazo} {_('días')}</td>
+                </tr>
+            </table>
+        </div>
+            """
+        elif credito_tipo == 2:
+            cuotas_count = credito.get('cuotas', 0)
+            monto_entrega = credito.get('montoEntrega')
+            info_cuotas = credito.get('infoCuotas', [])
+
+            html += f"""
+        <div style="margin-top: 15px; padding: 15px; background: #e8f5e9; border-radius: 6px;">
+            <h4 style="margin: 0 0 10px; color: #2e7d32; font-size: 14px;">{_('Información de Crédito - Cuotas')}</h4>
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <tr>
+                    <td style="padding: 6px; width: 25%;"><strong>{_('Cantidad de Cuotas')}:</strong></td>
+                    <td style="padding: 6px;">{cuotas_count}</td>
+                </tr>
+            """
+            if monto_entrega:
+                html += f"""
+                <tr>
+                    <td style="padding: 6px;"><strong>{_('Monto de Entrega')}:</strong></td>
+                    <td style="padding: 6px;">{format(float(monto_entrega), ',.0f')}</td>
+                </tr>
+                """
+            html += """
+            </table>
+            """
+
+            if info_cuotas:
+                html += """
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px;">
+                <thead>
+                    <tr style="background: #c8e6c9;">
+                        <th style="padding: 6px; text-align: left; border-bottom: 2px solid #2e7d32;">""" + _('Moneda') + """</th>
+                        <th style="padding: 6px; text-align: right; border-bottom: 2px solid #2e7d32;">""" + _('Monto') + """</th>
+                        <th style="padding: 6px; text-align: right; border-bottom: 2px solid #2e7d32;">""" + _('Vencimiento') + """</th>
+                        <th style="padding: 6px; text-align: right; border-bottom: 2px solid #2e7d32;">""" + _('Días') + """</th>
+                    </tr>
+                </thead>
+                <tbody>
+                """
+                for cuota in info_cuotas:
+                    moneda = cuota.get('moneda', 'PYG')
+                    monto = cuota.get('monto', 0)
+                    vencimiento = cuota.get('vencimiento', '')
+                    dias = cuota.get('dias', '')
+                    html += f"""
+                    <tr>
+                        <td style="padding: 6px; border-bottom: 1px solid #c8e6c9;">{moneda}</td>
+                        <td style="padding: 6px; text-align: right; border-bottom: 1px solid #c8e6c9;">{format(float(monto), ',.0f')}</td>
+                        <td style="padding: 6px; text-align: right; border-bottom: 1px solid #c8e6c9;">{vencimiento}</td>
+                        <td style="padding: 6px; text-align: right; border-bottom: 1px solid #c8e6c9;">{dias or ''}</td>
+                    </tr>
+                    """
+                html += """
+                </tbody>
+            </table>
+                """
+
+            html += "</div>"
+
+    html += """
     </div>
     """
 

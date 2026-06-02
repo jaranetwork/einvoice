@@ -548,3 +548,82 @@ def download_pdf(factura_id, invoice_name=None):
         dict: File content and metadata
     """
     return download_sifen_file(factura_id, 'kude', invoice_name)
+
+
+# ============================================================================
+# BACKGROUND STATUS CHECK
+# ============================================================================
+
+def check_invoice_status_background(invoice_name, factura_id, user):
+    """
+    Background job to periodically check invoice status from SIFEN API
+    and notify the user via realtime when status changes.
+
+    Args:
+        invoice_name: Sales Invoice name
+        factura_id: SIFEN factura ID
+        user: Frappe user to notify
+    """
+    import time
+
+    max_attempts = 30
+    last_estado = ""
+
+    for attempt in range(max_attempts):
+        time.sleep(10)
+
+        try:
+            result = get_invoice_status(factura_id)
+        except Exception:
+            continue
+
+        if not result.get("success"):
+            continue
+
+        data = result.get("data", {})
+        estado = data.get("estado", "")
+
+        if not estado or estado == last_estado:
+            continue
+
+        last_estado = estado
+
+        update_dict = {
+            "custom_sifen_estado": estado,
+            "custom_sifen_cdc": data.get("cdc", ""),
+            "custom_sifen_correlativo": data.get("correlativo", ""),
+        }
+
+        try:
+            frappe.db.set_value("Sales Invoice", invoice_name, update_dict)
+            frappe.db.commit()
+        except Exception:
+            continue
+
+        # Get invoice fields for realtime update
+        try:
+            inv = frappe.db.get_value(
+                "Sales Invoice", invoice_name,
+                ["custom_einvoice_generated_date", "custom_sifen_factura_id"],
+                as_dict=True
+            )
+            generated_date = inv.custom_einvoice_generated_date if inv else ""
+            current_factura_id = inv.custom_sifen_factura_id if inv else factura_id
+        except Exception:
+            generated_date = ""
+            current_factura_id = factura_id
+
+        event_data = {
+            "invoice_name": invoice_name,
+            "estado": estado,
+            "factura_id": current_factura_id,
+            "cdc": data.get("cdc", ""),
+            "correlativo": data.get("correlativo", ""),
+            "generated_date": str(generated_date or ""),
+        }
+
+        frappe.publish_realtime("sifen_status_update", event_data, user=user)
+
+        if estado in ("Aceptado", "Rechazado"):
+            frappe.publish_realtime("sifen_status_final", event_data, user=user)
+            break
