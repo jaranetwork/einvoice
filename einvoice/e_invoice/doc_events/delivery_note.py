@@ -132,6 +132,17 @@ def generate_einvoice_manually_button(invoice_name, regenerate=False):
             if regenerate:
                 message = _("E-Invoice regenerated and sent to SIFEN successfully!<br><br>") + message
 
+            # Enqueue background job to check status periodically
+            factura_id = result.get("data", {}).get("facturaId")
+            if factura_id:
+                frappe.enqueue(
+                    "einvoice.e_invoice.utils.api_client.check_invoice_status_background",
+                    invoice_name=invoice_name,
+                    factura_id=factura_id,
+                    user=frappe.session.user,
+                    doctype="Delivery Note",
+                )
+
             frappe.msgprint(
                 message,
                 title="E-Invoice Generated" if not regenerate else "E-Invoice Regenerated",
@@ -524,10 +535,12 @@ def force_refresh_einvoice_status(invoice_name):
         data = result.get("data", {})
 
         update_dict = {
-            "custom_sifen_estado": data.get("estado", invoice.custom_sifen_estado),
-            "custom_sifen_cdc": data.get("cdc", invoice.custom_sifen_cdc),
-            "custom_sifen_correlativo": data.get("correlativo", invoice.custom_sifen_correlativo),
+            "custom_sifen_estado": data.get("estado") or invoice.custom_sifen_estado,
+            "custom_sifen_correlativo": data.get("correlativo") or invoice.custom_sifen_correlativo,
         }
+        cdc = data.get("cdc")
+        if cdc:
+            update_dict["custom_sifen_cdc"] = cdc
 
         frappe.db.set_value("Delivery Note", invoice_name, update_dict)
         frappe.db.commit()

@@ -1,0 +1,24 @@
+{
+  "doctype": "Custom Field",
+  "custom_fields": [
+    {
+      "dt": "Vehicle",
+      "fieldname": "sifen_vehiculo_tipo",
+      "fieldtype": "Data",
+      "label": "SIFEN Tipo de Vehículo",
+      "insert_after": "model",
+      "module": "E-Invoice",
+      "description": "Tipo de vehículo según SIFEN (4-10 caracteres, ej: Camión, Camioneta, Furgón)",
+      "length": 10,
+      "no_copy": 0,
+      "print_hide": 0,
+      "report_hide": 0,
+      "reqd": 1,
+      "search_index": 0,
+      "translatable": 0
+    }
+  ],
+  "property_setters": [],
+  "custom_perms": [],
+  "links": []
+}

@@ -382,10 +382,12 @@ def _handle_api_success(result, doc, invoice_data):
         "custom_sifen_factura_id": factura_id,
         "custom_einvoice_generated": 1,
         "custom_einvoice_generated_date": now_datetime(),
-        "custom_sifen_correlativo": data.get("correlativo", ""),
-        "custom_sifen_estado": data.get("estado", ""),
-        "custom_sifen_cdc": data.get("cdc")
+        "custom_sifen_correlativo": data.get("correlativo", "") or "",
+        "custom_sifen_estado": data.get("estado", "") or "",
     }
+    cdc = data.get("cdc")
+    if cdc:
+        update_dict["custom_sifen_cdc"] = cdc
 
     frappe.db.set_value(doc.doctype, doc.name, update_dict)
     frappe.db.commit()
@@ -554,15 +556,16 @@ def download_pdf(factura_id, invoice_name=None):
 # BACKGROUND STATUS CHECK
 # ============================================================================
 
-def check_invoice_status_background(invoice_name, factura_id, user):
+def check_invoice_status_background(invoice_name, factura_id, user, doctype="Sales Invoice"):
     """
     Background job to periodically check invoice status from SIFEN API
     and notify the user via realtime when status changes.
 
     Args:
-        invoice_name: Sales Invoice name
+        invoice_name: Invoice/Note name
         factura_id: SIFEN factura ID
         user: Frappe user to notify
+        doctype: DocType name (default: Sales Invoice)
     """
     import time
 
@@ -590,12 +593,14 @@ def check_invoice_status_background(invoice_name, factura_id, user):
 
         update_dict = {
             "custom_sifen_estado": estado,
-            "custom_sifen_cdc": data.get("cdc", ""),
-            "custom_sifen_correlativo": data.get("correlativo", ""),
+            "custom_sifen_correlativo": data.get("correlativo", "") or "",
         }
+        cdc = data.get("cdc")
+        if cdc:
+            update_dict["custom_sifen_cdc"] = cdc
 
         try:
-            frappe.db.set_value("Sales Invoice", invoice_name, update_dict)
+            frappe.db.set_value(doctype, invoice_name, update_dict)
             frappe.db.commit()
         except Exception:
             continue
@@ -603,7 +608,7 @@ def check_invoice_status_background(invoice_name, factura_id, user):
         # Get invoice fields for realtime update
         try:
             inv = frappe.db.get_value(
-                "Sales Invoice", invoice_name,
+                doctype, invoice_name,
                 ["custom_einvoice_generated_date", "custom_sifen_factura_id"],
                 as_dict=True
             )
@@ -615,10 +620,11 @@ def check_invoice_status_background(invoice_name, factura_id, user):
 
         event_data = {
             "invoice_name": invoice_name,
+            "doctype": doctype,
             "estado": estado,
             "factura_id": current_factura_id,
-            "cdc": data.get("cdc", ""),
-            "correlativo": data.get("correlativo", ""),
+            "cdc": data.get("cdc") or "",
+            "correlativo": data.get("correlativo") or "",
             "generated_date": str(generated_date or ""),
         }
 

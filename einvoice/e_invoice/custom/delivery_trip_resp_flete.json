@@ -1,0 +1,25 @@
+{
+  "doctype": "Custom Field",
+  "custom_fields": [
+    {
+      "dt": "Delivery Trip",
+      "fieldname": "delivery_trip_resp_flete",
+      "fieldtype": "Select",
+      "label": "SIFEN Responsable del Flete",
+      "insert_after": "delivery_trip_modalidad",
+      "module": "E-Invoice",
+      "description": "Responsable del costo del flete según SIFEN",
+      "no_copy": 0,
+      "print_hide": 0,
+      "report_hide": 0,
+      "default": "5|Transporte propio",
+      "reqd": 1,
+      "search_index": 0,
+      "translatable": 0,
+      "options": "\n1|Emisor\n2|Receptor\n3|Tercero\n5|Transporte propio"
+    }
+  ],
+  "property_setters": [],
+  "custom_perms": [],
+  "links": []
+}

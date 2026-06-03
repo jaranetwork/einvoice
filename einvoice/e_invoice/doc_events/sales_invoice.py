@@ -135,6 +135,7 @@ def generate_einvoice_manually_button(invoice_name, regenerate=False):
                     invoice_name=invoice_name,
                     factura_id=factura_id,
                     user=frappe.session.user,
+                    doctype="Sales Invoice",
                 )
 
             frappe.msgprint(
@@ -632,10 +633,12 @@ def force_refresh_einvoice_status(invoice_name):
         data = result.get("data", {})
 
         update_dict = {
-            "custom_sifen_estado": data.get("estado", invoice.custom_sifen_estado),
-            "custom_sifen_cdc": data.get("cdc", invoice.custom_sifen_cdc),
-            "custom_sifen_correlativo": data.get("correlativo", invoice.custom_sifen_correlativo),
+            "custom_sifen_estado": data.get("estado") or invoice.custom_sifen_estado,
+            "custom_sifen_correlativo": data.get("correlativo") or invoice.custom_sifen_correlativo,
         }
+        cdc = data.get("cdc")
+        if cdc:
+            update_dict["custom_sifen_cdc"] = cdc
 
         frappe.db.set_value("Sales Invoice", invoice_name, update_dict)
 

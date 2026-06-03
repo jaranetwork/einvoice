@@ -6,7 +6,7 @@ frappe.realtime.on("sifen_status_update", function(data) {
         message: __("E-Factura {0}: {1}", [data.invoice_name, data.estado]),
         indicator: data.estado === "Aceptado" ? "green" : "orange"
     });
-    if (cur_frm && cur_frm.doc.name === data.invoice_name) {
+    if (cur_frm && cur_frm.doc.name === data.invoice_name && (!data.doctype || data.doctype === "Sales Invoice")) {
         cur_frm.set_value("custom_sifen_estado", data.estado);
         if (data.cdc) cur_frm.set_value("custom_sifen_cdc", data.cdc);
         if (data.correlativo) cur_frm.set_value("custom_sifen_correlativo", data.correlativo);
@@ -21,7 +21,7 @@ frappe.realtime.on("sifen_status_final", function(data) {
         message: __("✅ E-Factura {0}: {1}", [data.invoice_name, data.estado]),
         indicator: data.estado === "Aceptado" ? "green" : "red"
     });
-    if (cur_frm && cur_frm.doc.name === data.invoice_name) {
+    if (cur_frm && cur_frm.doc.name === data.invoice_name && (!data.doctype || data.doctype === "Sales Invoice")) {
         cur_frm.set_value("custom_sifen_estado", data.estado);
         if (data.cdc) cur_frm.set_value("custom_sifen_cdc", data.cdc);
         if (data.correlativo) cur_frm.set_value("custom_sifen_correlativo", data.correlativo);

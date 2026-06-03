@@ -4,7 +4,7 @@ Main orchestrator for data section construction.
 """
 
 import frappe
-from frappe.utils import now_datetime, formatdate
+from frappe.utils import now_datetime, formatdate, format_datetime
 from ..helpers import (
     get_descuento_global,
     validar_moneda_sifen,
@@ -330,6 +330,23 @@ def _build_documento_asociado(doc, tipo_documento):
 
         return [{"formato": 3, "constanciaTipo": constancia_tipo, "constanciaNumero": constancia_numero, "constanciaControl": constancia_control}]
 
+    # Delivery Note: link to associated Sales Invoice
+    if doc.doctype == "Delivery Note":
+        cdc_original = ""
+        si_name = None
+        if hasattr(doc, 'items') and doc.items:
+            si_name = doc.items[0].against_sales_invoice
+        if si_name:
+            try:
+                si_cdc = frappe.db.get_value("Sales Invoice", si_name, "custom_sifen_cdc")
+                if si_cdc:
+                    cdc_original = si_cdc
+            except Exception:
+                pass
+        if cdc_original:
+            return [{"formato": 1, "cdc": cdc_original}]
+        return []
+
     # Sales Invoice: only for NC/ND (tipo 5, 6)
     if tipo_documento not in [5, 6]:
         return []
@@ -529,7 +546,7 @@ def _build_transporte_section(doc):
             return None
         
         # Get Delivery Trip fields
-        trip_fields = ["delivery_trip_tipo", "delivery_trip_modalidad", "departure_time"]
+        trip_fields = ["delivery_trip_tipo", "delivery_trip_modalidad", "departure_time", "vehicle", "delivery_trip_resp_flete"]
         trip_data = frappe.db.get_value("Delivery Trip", trip_name, trip_fields, as_dict=True)
         
         if not trip_data:
@@ -550,13 +567,19 @@ def _build_transporte_section(doc):
             if modalidad_code:
                 transporte["modalidad"] = modalidad_code
         
-        # inicioEstimadoTranslado (format: YYYY-MM-DD)
+        # tipoResponsable (from delivery_trip_resp_flete select field)
+        if trip_data.get("delivery_trip_resp_flete"):
+            resp_code = _extract_code_from_select(trip_data.delivery_trip_resp_flete)
+            if resp_code:
+                transporte["tipoResponsable"] = resp_code
+        
+        # inicioEstimadoTranslado (format: YYYY-MM-DD HH:MM)
         if trip_data.get("departure_time"):
-            transporte["inicioEstimadoTranslado"] = formatdate(trip_data.departure_time, "yyyy-mm-dd")
+            transporte["inicioEstimadoTranslado"] = format_datetime(trip_data.departure_time, "yyyy-mm-dd HH:MM")
         
         # finEstimadoTranslado - get latest estimated_arrival from stops
         if delivery_stops and delivery_stops[0].get("estimated_arrival"):
-            transporte["finEstimadoTranslado"] = formatdate(delivery_stops[0].estimated_arrival, "yyyy-mm-dd")
+            transporte["finEstimadoTranslado"] = format_datetime(delivery_stops[0].estimated_arrival, "yyyy-mm-dd HH:MM")
         
         # salida: company address from Delivery Note
         salida = _build_address_block(getattr(doc, 'company_address', None))
@@ -568,8 +591,73 @@ def _build_transporte_section(doc):
         if entrega:
             transporte["entrega"] = entrega
         
+        # vehiculo: from linked Vehicle on Delivery Trip
+        vehiculo = _build_vehiculo_block(trip_data)
+        if vehiculo:
+            transporte["vehiculo"] = vehiculo
+        
+        # condicionNegociacion: Incoterm from linked Shipment
+        condicion = _build_condicion_negociacion(doc)
+        if condicion:
+            transporte["condicionNegociacion"] = condicion
+        
         return transporte if transporte else None
         
+    except Exception:
+        return None
+
+
+def _build_vehiculo_block(trip_data):
+    """Build vehiculo block for transporte section from Delivery Trip vehicle data."""
+    vehicle_name = trip_data.get("vehicle")
+    if not vehicle_name:
+        return None
+
+    try:
+        vehicle = frappe.get_doc("Vehicle", vehicle_name)
+    except Exception:
+        return None
+
+    tipo = getattr(vehicle, 'sifen_vehiculo_tipo', None)
+    if not tipo:
+        return None
+
+    vehiculo = {
+        "tipo": tipo,
+        "marca": (vehicle.make or "")[:10],
+    }
+
+    doc_tipo_raw = getattr(vehicle, 'sifen_documento_tipo', None)
+    if doc_tipo_raw:
+        doc_tipo_code = _extract_code_from_select(doc_tipo_raw)
+        if doc_tipo_code == 1:
+            vehiculo["documentoTipo"] = 1
+            if vehicle.chassis_no:
+                vehiculo["documentoNumero"] = vehicle.chassis_no
+        elif doc_tipo_code == 2:
+            vehiculo["documentoTipo"] = 2
+            if vehicle.chassis_no:
+                vehiculo["numeroMatricula"] = vehicle.chassis_no
+
+    return vehiculo
+
+
+def _build_condicion_negociacion(doc):
+    """Get Incoterm code from Shipment linked to this Delivery Note."""
+    try:
+        shipment_links = frappe.get_all(
+            "Shipment Delivery Note",
+            filters={"delivery_note": doc.name},
+            fields=["parent"],
+            limit=1
+        )
+        if not shipment_links:
+            return None
+        shipment_name = shipment_links[0].parent
+        incoterm_name = frappe.db.get_value("Shipment", shipment_name, "incoterm")
+        if not incoterm_name:
+            return None
+        return frappe.db.get_value("Incoterm", incoterm_name, "code")
     except Exception:
         return None
 

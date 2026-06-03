@@ -162,6 +162,9 @@ doc_events = {
             "einvoice.e_invoice.utils.api_client.validar_campos_sifen",
         ],
         "on_cancel": "einvoice.e_invoice.doc_events.delivery_note.on_cancel",
+    },
+    "Vehicle": {
+        "validate": "einvoice.e_invoice.doctype.vehicle.vehicle.validate",
     }
     # "Sales Invoice": {
     #     "on_submit": "einvoice.e_invoice.doc_events.sales_invoice.generate_einvoice_manually",

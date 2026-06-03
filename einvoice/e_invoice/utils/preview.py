@@ -118,6 +118,44 @@ MOTIVOS_NC_ND = {
     8: "Otro",
 }
 
+MOTIVOS_REMISION = {
+    1: "Traslado por ventas",
+    2: "Traslado por consignación",
+    3: "Exportación",
+    4: "Traslado por compra",
+    5: "Importación",
+    6: "Traslado por devolución",
+    7: "Traslado entre locales de la empresa",
+    8: "Traslado de bienes por transformación",
+    9: "Traslado de bienes por reparación",
+    10: "Traslado por emisor móvil",
+    11: "Exhibición o demostración",
+    12: "Participación en ferias",
+    13: "Traslado de encomienda",
+    14: "Decomiso",
+    99: "Otro",
+}
+
+RESPONSABLES_REMISION = {
+    1: "Emisor de la factura",
+    2: "Poseedor de la factura y bienes",
+    3: "Empresa transportista",
+    4: "Despachante de Aduanas",
+    5: "Agente de transporte o intermediario",
+}
+
+TRANSPORTE_TIPO = {
+    1: "Propio",
+    2: "Tercero",
+}
+
+TRANSPORTE_MODALIDAD = {
+    1: "Terrestre",
+    2: "Fluvial",
+    3: "Aéreo",
+    4: "Multimodal",
+}
+
 
 def get_sifen_description(category, code):
     """Get human-readable description for a SIFEN code."""
@@ -144,15 +182,16 @@ def get_invoice_preview_html(invoice_name):
     Builds JSON using prepare_invoice_data, then renders as HTML.
     """
     # Determine doc type
-    doctype = "Sales Invoice"
-    try:
-        doc = frappe.get_doc("Sales Invoice", invoice_name)
-    except Exception:
-        try:
-            doc = frappe.get_doc("Purchase Invoice", invoice_name)
-            doctype = "Purchase Invoice"
-        except Exception:
-            frappe.throw(_("Invoice {0} not found").format(invoice_name))
+    doctype = None
+    for dt in ("Sales Invoice", "Purchase Invoice", "Delivery Note"):
+        if frappe.db.exists(dt, invoice_name):
+            doctype = dt
+            break
+
+    if not doctype:
+        frappe.throw(_("Invoice {0} not found").format(invoice_name))
+
+    doc = frappe.get_doc(doctype, invoice_name)
 
     if doc.docstatus == 0:
         frappe.throw(_("Cannot preview a draft invoice. Please save and validate first."))
@@ -169,7 +208,9 @@ def get_invoice_preview_html(invoice_name):
 
 def _build_html(param, data, doc, doctype):
     """Build complete HTML preview."""
-    doc_type_label = _("Autofactura") if doctype == "Purchase Invoice" else _("Factura de Venta")
+    doc_type_label = _("Autofactura") if doctype == "Purchase Invoice" else \
+                     _("Nota de Remisión") if doctype == "Delivery Note" else \
+                     _("Factura de Venta")
 
     html = f"""
     <div style="font-family: Arial, sans-serif; max-width: 900px; margin: 20px auto; border: 1px solid #ccc; border-radius: 8px; overflow: hidden;">
@@ -279,6 +320,9 @@ def _build_html(param, data, doc, doctype):
 
         <!-- Payments -->
         {_build_payments_html(data.get('condicion', {}))}
+
+        <!-- Delivery Note Remision/Transporte -->
+        {_build_remision_transporte_html(data, doc, doctype)}
 
         <!-- Footer -->
         <div style="padding: 15px 20px; background: #f8f9fa; text-align: center; color: #888; font-size: 12px; border-top: 1px solid #e0e0e0;">
@@ -463,6 +507,174 @@ def _build_payments_html(condicion):
     return html
 
 
+def _build_remision_transporte_html(data, doc, doctype):
+    """Build HTML for Delivery Note remision/transporte sections."""
+    if doctype != "Delivery Note":
+        return ""
+
+    html = ""
+
+    # --- Remision section ---
+    remision = data.get('remision', {})
+    if remision:
+        html += f"""
+        <div style="padding: 20px; border-bottom: 1px solid #e0e0e0;">
+            <h3 style="margin: 0 0 15px; color: #333; font-size: 16px;">{_('Remisión')}</h3>
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <tr>
+                    <td style="padding: 6px; width: 30%;"><strong>{_('Motivo')}:</strong></td>
+                    <td style="padding: 6px; width: 70%;">{_get_motivo_remision_desc(remision.get('motivo'))}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px;"><strong>{_('Responsable')}:</strong></td>
+                    <td style="padding: 6px;">{_get_responsable_remision_desc(remision.get('tipoResponsable'))}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px;"><strong>{_('Distancia (Kms)')}:</strong></td>
+                    <td style="padding: 6px;">{remision.get('kms', '')}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px;"><strong>{_('Fecha Factura')}:</strong></td>
+                    <td style="padding: 6px;">{remision.get('fechaFactura', '')}</td>
+                </tr>
+            </table>
+        </div>
+        """
+
+    # --- Transporte section ---
+    transporte = data.get('transporte', {})
+    if transporte:
+        # Fetch vehicle/driver from Delivery Trip
+        vehicle_str = ""
+        driver_name = ""
+        try:
+            stops = frappe.get_all("Delivery Stop", filters={"delivery_note": doc.name}, fields=["parent"], limit=1)
+            if stops:
+                trip_name = stops[0].parent
+                trip = frappe.get_doc("Delivery Trip", trip_name)
+                if trip.vehicle:
+                    plate = frappe.db.get_value("Vehicle", trip.vehicle, "license_plate")
+                    vehicle_str = f"{trip.vehicle} ({plate})" if plate else trip.vehicle
+                driver_name = trip.driver_name or ""
+        except Exception:
+            pass
+
+        # Format address blocks
+        salida = transporte.get('salida', {})
+        entrega = transporte.get('entrega', {})
+        salida_str = ""
+        entrega_str = ""
+
+        if salida:
+            parts = []
+            if salida.get('direccion'):
+                parts.append(salida['direccion'])
+            if salida.get('numeroCasa'):
+                parts.append(f"Nº {salida['numeroCasa']}")
+            if salida.get('ciudadDescripcion'):
+                parts.append(salida['ciudadDescripcion'])
+            salida_str = ", ".join(parts) if parts else ""
+
+        if entrega:
+            parts = []
+            if entrega.get('direccion'):
+                parts.append(entrega['direccion'])
+            if entrega.get('numeroCasa'):
+                parts.append(f"Nº {entrega['numeroCasa']}")
+            if entrega.get('ciudadDescripcion'):
+                parts.append(entrega['ciudadDescripcion'])
+            entrega_str = ", ".join(parts) if parts else ""
+
+        html += f"""
+        <div style="padding: 20px; border-bottom: 1px solid #e0e0e0;">
+            <h3 style="margin: 0 0 15px; color: #333; font-size: 16px;">{_('Transporte')}</h3>
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <tr>
+                    <td style="padding: 6px; width: 30%;"><strong>{_('Tipo')}:</strong></td>
+                    <td style="padding: 6px; width: 70%;">{_get_transporte_tipo_desc(transporte.get('tipo'))}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px;"><strong>{_('Modalidad')}:</strong></td>
+                    <td style="padding: 6px;">{_get_transporte_modalidad_desc(transporte.get('modalidad'))}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px;"><strong>{_('Hora de Salida')}:</strong></td>
+                    <td style="padding: 6px;">{transporte.get('inicioEstimadoTranslado', '')}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px;"><strong>{_('Llegada Estimada')}:</strong></td>
+                    <td style="padding: 6px;">{transporte.get('finEstimadoTranslado', '')}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px;"><strong>{_('Vehículo')}:</strong></td>
+                    <td style="padding: 6px;">{vehicle_str or '<span style="color: #ccc;">—</span>'}</td>
+                </tr>
+                {_build_vehiculo_id_row(transporte.get('vehiculo', {}))}
+                <tr>
+                    <td style="padding: 6px;"><strong>{_('Conductor')}:</strong></td>
+                    <td style="padding: 6px;">{driver_name or '<span style="color: #ccc;">—</span>'}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px; vertical-align: top;"><strong>{_('Dirección Salida')}:</strong></td>
+                    <td style="padding: 6px; vertical-align: top;">{salida_str or '<span style="color: #ccc;">—</span>'}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px; vertical-align: top;"><strong>{_('Dirección Entrega')}:</strong></td>
+                    <td style="padding: 6px; vertical-align: top;">{entrega_str or '<span style="color: #ccc;">—</span>'}</td>
+                </tr>
+            </table>
+        </div>
+        """
+
+    # --- Delivery Stops section ---
+    try:
+        stops = frappe.get_all(
+            "Delivery Stop",
+            filters={"delivery_note": doc.name},
+            fields=["estimated_arrival", "customer", "address"],
+            order_by="idx asc"
+        )
+    except Exception:
+        stops = []
+
+    if stops:
+        # Resolve customer names
+        stop_rows = ""
+        for stop in stops:
+            customer_name = ""
+            if stop.get("customer"):
+                customer_name = frappe.db.get_value("Customer", stop.customer, "customer_name") or stop.customer
+            est_arrival = stop.get("estimated_arrival", "")
+            if est_arrival:
+                est_arrival = str(est_arrival)
+            stop_rows += f"""
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">{est_arrival or '<span style="color: #ccc;">—</span>'}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">{customer_name or '<span style="color: #ccc;">—</span>'}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">{stop.get('address', '') or '<span style="color: #ccc;">—</span>'}</td>
+                </tr>"""
+
+        html += f"""
+        <div style="padding: 20px; border-bottom: 1px solid #e0e0e0;">
+            <h3 style="margin: 0 0 15px; color: #333; font-size: 16px;">{_('Paradas de Entrega')}</h3>
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <thead>
+                    <tr style="background: #e8eef5;">
+                        <th style="padding: 8px; text-align: left; border-bottom: 2px solid #1a73e8; width: 30%;">{_('Llegada Estimada')}</th>
+                        <th style="padding: 8px; text-align: left; border-bottom: 2px solid #1a73e8; width: 35%;">{_('Cliente')}</th>
+                        <th style="padding: 8px; text-align: left; border-bottom: 2px solid #1a73e8; width: 35%;">{_('Dirección')}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {stop_rows}
+                </tbody>
+            </table>
+        </div>
+        """
+
+    return html
+
+
 # ============================================================================
 # HELPER FUNCTIONS - Map codes to descriptions
 # ============================================================================
@@ -629,3 +841,35 @@ def _get_afectacion_iva_desc(code):
 
 def _get_motivo_nc_nd_desc(code):
     return MOTIVOS_NC_ND.get(int(code) if code else 0, str(code or ''))
+
+def _get_motivo_remision_desc(code):
+    return MOTIVOS_REMISION.get(int(code) if code else 0, str(code or ''))
+
+def _get_responsable_remision_desc(code):
+    return RESPONSABLES_REMISION.get(int(code) if code else 0, str(code or ''))
+
+def _get_transporte_tipo_desc(code):
+    return TRANSPORTE_TIPO.get(int(code) if code else 0, str(code or ''))
+
+def _get_transporte_modalidad_desc(code):
+    return TRANSPORTE_MODALIDAD.get(int(code) if code else 0, str(code or ''))
+
+def _build_vehiculo_id_row(vehiculo):
+    doc_tipo = vehiculo.get('documentoTipo')
+    if doc_tipo == 1:
+        label = _('N° Chasis (VIN)')
+        value = vehiculo.get('documentoNumero', '')
+    elif doc_tipo == 2:
+        label = _('N° Matrícula')
+        value = vehiculo.get('numeroMatricula', '')
+    else:
+        return ""
+    return f"""
+                <tr>
+                    <td style="padding: 6px;"><strong>{_('Tipo Identificación')}:</strong></td>
+                    <td style="padding: 6px;">{"Chasis" if doc_tipo == 1 else "Matrícula"}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px;"><strong>{label}:</strong></td>
+                    <td style="padding: 6px;">{value or '<span style="color: #ccc;">—</span>'}</td>
+                </tr>"""
