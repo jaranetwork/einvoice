@@ -33,12 +33,12 @@
       "dt": "Purchase Invoice",
       "fieldname": "custom_sifen_factura_id",
       "fieldtype": "Data",
-      "label": "FEPY Factura ID",
+      "label": "DTE-PY Factura ID",
       "insert_after": "custom_einvoice_generated_date",
       "module": "E-Invoice",
       "no_copy": 1,
       "read_only": 1,
-      "description": "ID de factura del sistema FEPY"
+      "description": "ID de factura del sistema DTE-PY"
     },
     {
       "dt": "Purchase Invoice",
@@ -54,12 +54,12 @@
       "dt": "Purchase Invoice",
       "fieldname": "custom_sifen_estado",
       "fieldtype": "Data",
-      "label": "FEPY Estado",
+      "label": "DTE-PY Estado",
       "insert_after": "custom_sifen_correlativo",
       "module": "E-Invoice",
       "no_copy": 1,
       "read_only": 1,
-      "description": "Estado actual en el sistema FEPY"
+      "description": "Estado actual en el sistema DTE-PY"
     },
     {
       "dt": "Purchase Invoice",

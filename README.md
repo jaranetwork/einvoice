@@ -1,13 +1,13 @@
-# Módulo en desarrollo ERPNEXT para el sistema FEPY
+# Módulo en desarrollo ERPNEXT para el sistema DTE-PY
 
-Envía datos de facturación de ERPNext al sistema FEPY para la generación de XML, KUDE y el envío de datos al sistema SIFEN Paraguay.
+Envía datos de facturación de ERPNext al sistema DTE-PY para la generación de XML, KUDE y el envío de datos al sistema SIFEN Paraguay.
 
 ---
 
 ## Características
 
 - ✅ Campos reequeridos para facturación electrónica con SIFEN Paraguay
-- ✅ Generación automática de XML y KUDE en el sistema FEPY
+- ✅ Generación automática de XML y KUDE en el sistema DTE-PY
 - ✅ Validación de campos requeridos antes del envío
 - ✅ Soporte para todos los tipos de operación (B2B, B2C, B2G, B2F)
 - ✅ Descarga de documentos desde Sales Invoice
@@ -32,7 +32,7 @@ bench clear-cache
 
 ## Inicio Rápido
 
-1. **Configurar E-Invoice Setting**: Habilitar y configurar API Endpoint + API Key del sistema FEPY
+1. **Configurar E-Invoice Setting**: Habilitar y configurar API Endpoint + API Key del sistema DTE-PY
 2. **Configurar Company**: RUC, Timbrado, Actividades Económicas, Responsable SIFEN
 3. **Configurar Customer**: sifen_tipo_documento, sifen_tipo_impuesto
 4. **Configurar Items**: Item Tax Template con sifen_tipo_iva
@@ -45,7 +45,7 @@ Ver [Documentación Completa](einvoice/docs/00_index.md) para más detalles.
 
 1. Crear Sales Invoice
 2. Validar factura (Submit)
-3. Menú E-Invoice → Send to FEPY
+3. Menú E-Invoice → Send to DTE-PY
 4. Descargar XML/KUDE
 
 ---
@@ -61,9 +61,9 @@ La documentación completa está disponible en:
 
 ## Proyectos
 
-Este módulo trabaja con el sistema FEPY:
-- [FEPY backend](https://github.com/jaranetwork/fepy-backend)
-- [FEPY frontend - Interfaz web](https://github.com/jaranetwork/fepy-frontend)
+Este módulo trabaja con el sistema DTE-PY:
+- [DTE-PY backend](https://github.com/jaranetwork/fepy-backend)
+- [DTE-PY frontend - Interfaz web](https://github.com/jaranetwork/fepy-frontend)
 
 ---
 

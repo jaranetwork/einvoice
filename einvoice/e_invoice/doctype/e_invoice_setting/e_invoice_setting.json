@@ -30,12 +30,12 @@
   {
    "fieldname": "api_endpoint",
    "fieldtype": "Data",
-   "label": "API Endpoint"
+   "label": "DTE-PY API Endpoint"
   },
   {
    "fieldname": "api_key",
    "fieldtype": "Data",
-   "label": "API Key"
+   "label": "DTE-PY API Key"
   },
   {
    "fieldname": "section_timeout",
