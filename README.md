@@ -62,8 +62,8 @@ La documentación completa está disponible en:
 ## Proyectos
 
 Este módulo trabaja con el sistema DTE-PY:
-- [DTE-PY backend](https://github.com/jaranetwork/fepy-backend)
-- [DTE-PY frontend - Interfaz web](https://github.com/jaranetwork/fepy-frontend)
+- [DTE-PY backend](https://github.com/jaranetwork/dtepy-backend)
+- [DTE-PY frontend - Interfaz web](https://github.com/jaranetwork/dtepy-frontend)
 
 ---
 
