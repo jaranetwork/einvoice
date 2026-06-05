@@ -362,7 +362,7 @@ def _build_documento_asociado(doc, tipo_documento):
             pass
 
     if cdc_original:
-        return [{"tipo": 1, "cdc": cdc_original}]
+        return [{"formato": 1, "cdc": cdc_original}]
 
     return []
 
@@ -601,6 +601,11 @@ def _build_transporte_section(doc):
         if condicion:
             transporte["condicionNegociacion"] = condicion
         
+        # transportista: carrier from Linked Supplier (doc.transporter)
+        transportista = _build_transportista_block(doc)
+        if transportista:
+            transporte["transportista"] = transportista
+        
         return transporte if transporte else None
         
     except Exception:
@@ -660,6 +665,85 @@ def _build_condicion_negociacion(doc):
         return frappe.db.get_value("Incoterm", incoterm_name, "code")
     except Exception:
         return None
+
+
+def _build_transportista_block(doc):
+    """
+    Build transportista block for Delivery Note.
+    Only built when doc.transporter (Link to Supplier) is set.
+    Chofer data from linked Driver using license_number as documentoNumero.
+    """
+    if not doc.get("transporter"):
+        return None
+
+    try:
+        supplier = frappe.get_doc("Supplier", doc.transporter)
+    except Exception:
+        return None
+
+    contribuyente = bool(supplier.sifen_contribuyente)
+    transportista = {
+        "contribuyente": contribuyente,
+        "nombre": supplier.supplier_name or "",
+        "direccion": _get_supplier_primary_address(doc.transporter) or "",
+        "pais": "PRY",
+    }
+
+    if contribuyente:
+        if supplier.tax_id:
+            transportista["ruc"] = supplier.tax_id
+    else:
+        tipo_raw = supplier.sifen_tipo_documento
+        if tipo_raw:
+            try:
+                transportista["documentoTipo"] = int(str(tipo_raw).split('|')[0].strip())
+            except Exception:
+                pass
+        transportista["documentoNumero"] = supplier.tax_id or ""
+
+    if doc.get("driver"):
+        try:
+            driver = frappe.get_doc("Driver", doc.driver)
+            chofer = {
+                "nombre": driver.full_name or "",
+                "documentoNumero": driver.license_number or "",
+            }
+            if driver.address:
+                addr = frappe.db.get_value("Address", driver.address, "address_line1")
+                if addr:
+                    chofer["direccion"] = addr
+            transportista["chofer"] = chofer
+        except Exception:
+            return None
+
+    return transportista if transportista.get("chofer") else None
+
+
+def _get_supplier_primary_address(supplier_name):
+    """Get primary address line for a Supplier."""
+    try:
+        linked = frappe.db.get_all(
+            "Dynamic Link",
+            filters={"link_doctype": "Supplier", "link_name": supplier_name, "parenttype": "Address"},
+            fields=["parent"],
+            limit=20
+        )
+        if not linked:
+            return None
+        addr_names = [l.parent for l in linked]
+        # Prefer primary address
+        primary = frappe.db.get_value(
+            "Address",
+            {"name": ["in", addr_names], "is_primary_address": 1},
+            "address_line1"
+        )
+        if primary:
+            return primary
+        # Fallback: first linked address
+        return frappe.db.get_value("Address", addr_names[0], "address_line1")
+    except Exception:
+        pass
+    return None
 
 
 def _build_address_block(address_name):

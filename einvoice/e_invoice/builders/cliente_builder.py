@@ -220,7 +220,6 @@ def _build_cliente_original(party, address_data, location_codes, doc=None):
     cliente = {
         "contribuyente": es_contribuyente,
         "tipoOperacion": tipo_operacion,
-        "ruc": ruc,
         "razonSocial": party.customer_name,
         "nombreFantasia": party.customer_name,
         "direccion": address_data.get("address_line1", ""),
@@ -240,6 +239,10 @@ def _build_cliente_original(party, address_data, location_codes, doc=None):
         "email": address_data.get("email_id") or party.email_id,
         "codigo": party.sifen_codigo_cliente
     }
+
+    # Only add RUC when customer is a SIFEN contributor
+    if es_contribuyente:
+        cliente["ruc"] = ruc
 
     # Only add document type/number if not contributor and not B2F
     if documento_tipo is not None and documento_numero is not None:
