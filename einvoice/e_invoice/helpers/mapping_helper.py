@@ -176,9 +176,9 @@ def get_sifen_tipo_iva_item(item_code, item_tax_template=None, sales_invoice=Non
     return 1, 10.0  # Default: Gravado IVA
 
 
-def get_sifen_tipo_impuesto(sales_invoice):
+def get_sifen_tipo_impuesto(doc):
     """
-    Get SIFEN tax type from customer field (sifen_tipo_impuesto).
+    Get SIFEN tax type from customer (SI) or supplier (PI) sifen_tipo_impuesto field.
     
     SIFEN D013 - tiposImpuestos (nivel factura):
     1 = IVA (cliente local contribuyente)
@@ -188,63 +188,64 @@ def get_sifen_tipo_impuesto(sales_invoice):
     5 = IVA - Renta (mixto)
     
     Args:
-        sales_invoice: Sales Invoice document
+        doc: Sales Invoice or Purchase Invoice document
     
     Returns:
         tuple: (tipo_impuesto, tax_rate)
-            - tipo_impuesto: int (1-5) from tiposImpuestos
-            - tax_rate: float (default: 10.0 for IVA/ISC, 0.0 for Ninguno)
+            - tipo_impuesto: int (1-5) or None
+            - tax_rate: float or None
     """
-    # Get customer data with sifen_tipo_impuesto field
-    customer = None
-    
-    if hasattr(sales_invoice, 'customer') and sales_invoice.customer:
-        customer = frappe.db.get_value(
-            "Customer",
-            sales_invoice.customer,
-            ["sifen_tipo_impuesto", "tax_id"],
-            as_dict=True
+    party = None
+    party_name = None
+    party_doctype = None
+
+    if hasattr(doc, 'customer') and doc.customer:
+        party = frappe.db.get_value(
+            "Customer", doc.customer,
+            ["sifen_tipo_impuesto", "tax_id"], as_dict=True
         )
-    
-    # Get tipoImpuesto from customer field
-    if customer and customer.sifen_tipo_impuesto:
-        # Extract numeric value from stored format (e.g., "1|IVA" → 1)
-        tipo_impuesto_str = str(customer.sifen_tipo_impuesto).strip()
+        party_name = doc.customer
+        party_doctype = "Customer"
+    elif hasattr(doc, 'supplier') and doc.supplier:
+        party = frappe.db.get_value(
+            "Supplier", doc.supplier,
+            ["sifen_tipo_impuesto", "tax_id"], as_dict=True
+        )
+        party_name = doc.supplier
+        party_doctype = "Supplier"
+
+    if party and party.sifen_tipo_impuesto:
+        tipo_impuesto_str = str(party.sifen_tipo_impuesto).strip()
         if '|' in tipo_impuesto_str:
             tipo_impuesto_str = tipo_impuesto_str.split('|')[0].strip()
-        
+
         try:
             tipo_impuesto = int(tipo_impuesto_str)
-            
-            # Validate range (1-5)
+
             if tipo_impuesto < 1 or tipo_impuesto > 5:
                 frappe.throw(
-                    _("Invalid SIFEN Tipo Impuesto value for customer {0}: {1}.<br><br>"
+                    _("Invalid SIFEN Tipo Impuesto value for {0} {1}: {2}.<br><br>"
                       "Valid values are 1-5.").format(
-                        sales_invoice.customer,
-                        tipo_impuesto
+                        party_doctype, party_name, tipo_impuesto
                     ),
                     title=_("Invalid SIFEN Tipo Impuesto")
                 )
-            
-            # Return tax rate based on tipoImpuesto
-            if tipo_impuesto == 4:  # Ninguno
+
+            if tipo_impuesto == 4:
                 return tipo_impuesto, 0.0
             else:
-                return tipo_impuesto, 10.0  # Default rate for IVA/ISC/Renta
-                
+                return tipo_impuesto, 10.0
+
         except (ValueError, TypeError):
             frappe.throw(
-                _("Invalid SIFEN Tipo Impuesto format for customer {0}: {1}.<br><br>"
+                _("Invalid SIFEN Tipo Impuesto format for {0} {1}: {2}.<br><br>"
                   "Please select a valid option (1-5).").format(
-                    sales_invoice.customer,
-                    customer.sifen_tipo_impuesto
+                    party_doctype, party_name, party.sifen_tipo_impuesto
                 ),
                 title=_("Invalid SIFEN Tipo Impuesto Format")
             )
-    
-    # Fallback: Default to IVA (1) if field is not set
-    return 1, 10.0
+
+    return None, None
 
 
 def get_country_codes(customer_country):

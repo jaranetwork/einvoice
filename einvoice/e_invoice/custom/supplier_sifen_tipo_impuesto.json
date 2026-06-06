@@ -15,7 +15,7 @@
       "reqd": 0,
       "search_index": 0,
       "translatable": 0,
-      "options": "\n1|IVA (proveedor local contribuyente)\n2|ISC (productos con impuesto selectivo)\n3|Renta (proveedor extranjero B2F con RUC)\n4|Ninguno (proveedor extranjero sin RUC, consumidor final)\n5|IVA - Renta (mixto)"
+      "options": "\n1|IVA (proveedor local contribuyente)\n2|ISC (productos con impuesto selectivo)\n3|Renta (proveedor extranjero B2F con RUC)\n4|Ninguno (proveedor extranjero sin RUC, consumidor final)\n5|IVA - Renta (mixto). Requerido para Autofactura"
     }
   ],
   "property_setters": [],

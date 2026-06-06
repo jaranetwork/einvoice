@@ -192,17 +192,15 @@ def _build_cliente_original(party, address_data, location_codes, doc=None):
     # Determine if contributor
     es_contribuyente = _determine_contribuyente(party)
 
-    # Determine tipoContribuyente from SIFEN field, fallback from customer_type
+    # Determine tipoContribuyente from SIFEN custom field only — no fallback
+    tipo_contribuyente = None
     tipo_contribuyente_raw = party.get('sifen_tipo_contribuyente', '')
     if tipo_contribuyente_raw:
-        tipo_contribuyente_str = str(tipo_contribuyente_raw).split('|')[0].strip()
         try:
-            tipo_contribuyente = int(tipo_contribuyente_str)
-        except (ValueError, TypeError):
-            tipo_contribuyente = 1 if party.customer_type == "Individual" else 2
-    else:
-        # Fallback: Company = Jurídica (2), Individual = Física (1)
-        tipo_contribuyente = 1 if party.customer_type == "Individual" else 2
+            code = str(tipo_contribuyente_raw).split('|')[0].strip()
+            tipo_contribuyente = int(code)
+        except (ValueError, TypeError, IndexError):
+            pass
 
     # Get country codes
     pais_codigo, pais_nombre = _get_pais_data(tipo_operacion, address_data.get("country", ""))
@@ -233,12 +231,15 @@ def _build_cliente_original(party, address_data, location_codes, doc=None):
         "ciudadDescripcion": None if tipo_operacion == 4 else location_codes["ciudadDescripcion"],
         "pais": "PRY" if tipo_operacion != 4 else pais_codigo,
         "paisDescripcion": "Paraguay" if tipo_operacion != 4 else pais_nombre,
-        "tipoContribuyente": tipo_contribuyente,
         "telefono": address_data.get("phone") or party.mobile_no,
         "celular": address_data.get("phone") or party.mobile_no,
         "email": address_data.get("email_id") or party.email_id,
         "codigo": party.sifen_codigo_cliente
     }
+
+    # Only add tipoContribuyente when set (no fallback guessing)
+    if tipo_contribuyente is not None:
+        cliente["tipoContribuyente"] = tipo_contribuyente
 
     # Only add RUC when customer is a SIFEN contributor
     if es_contribuyente:

@@ -126,6 +126,17 @@ def generate_einvoice_manually_button(invoice_name, regenerate=False):
             if regenerate:
                 message = _("E-Invoice regenerated and sent to SIFEN successfully!<br><br>") + message
 
+            # Enqueue background job to check status periodically
+            factura_id = result.get("data", {}).get("facturaId")
+            if factura_id:
+                frappe.enqueue(
+                    "einvoice.e_invoice.utils.api_client.check_invoice_status_background",
+                    invoice_name=invoice_name,
+                    factura_id=factura_id,
+                    user=frappe.session.user,
+                    doctype="Purchase Invoice",
+                )
+
             frappe.msgprint(
                 message,
                 title="E-Invoice Generated" if not regenerate else "E-Invoice Regenerated",

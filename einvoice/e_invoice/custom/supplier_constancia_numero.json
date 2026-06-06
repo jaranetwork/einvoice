@@ -10,6 +10,8 @@
       "module": "E-Invoice",
       "description": "Constancia número según SIFEN",
       "length": 11,
+      "depends_on": "eval:doc.sifen_autofactura == 1",
+      "mandatory_depends_on": "eval:doc.sifen_autofactura == 1",
       "no_copy": 0,
       "print_hide": 0,
       "report_hide": 0,

@@ -3,12 +3,12 @@
   "custom_fields": [
     {
       "dt": "Supplier",
-      "fieldname": "sifen_contribuyente",
+      "fieldname": "sifen_autofactura",
       "fieldtype": "Check",
-      "label": "SIFEN Es contribuyente?",
-      "insert_after": "tax_id",
+      "label": "SIFEN Autofactura",
+      "insert_after": "sifen_tipo_impuesto",
       "module": "E-Invoice",
-      "description": "Indica si el proveedor es contribuyente del sistema de facturación. Marcar para Autofactura.",
+      "description": "Indica si el proveedor no es contribuyente del sistema de facturación. Marcar para Autofactura.",
       "no_copy": 0,
       "print_hide": 0,
       "report_hide": 0,

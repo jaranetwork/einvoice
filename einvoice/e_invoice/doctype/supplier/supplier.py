@@ -6,6 +6,48 @@ from frappe import _
 from frappe.utils import now_datetime
 
 
+def validate(doc, method=None):
+    """Validate SIFEN autofactura fields."""
+    errores = []
+
+    if doc.sifen_autofactura:
+        if not doc.sifen_contribuyente:
+            errores.append("SIFEN Es contribuyente debe estar marcado")
+        if not doc.sifen_tipo_contribuyente:
+            errores.append("SIFEN Tipo Contribuyente")
+        if not doc.sifen_tipo_documento:
+            errores.append("SIFEN Tipo Documento")
+        if not doc.sifen_tipo_impuesto:
+            errores.append("SIFEN Tipo Impuesto")
+        if not doc.sifen_tipo_autofactura:
+            errores.append("SIFEN Autofactura Tipo")
+        if not doc.sifen_tipo_constancias:
+            errores.append("SIFEN Autofactura Tipo de Constancias")
+        if not doc.supplier_constancia_numero:
+            errores.append("SIFEN Autofactura Constancia Número")
+        if not doc.supplier_constancia_control:
+            errores.append("SIFEN Autofactura Constancia Control")
+    if not doc.sifen_autofactura and not doc.sifen_contribuyente:
+        if not doc.sifen_tipo_documento:
+            errores.append("SIFEN Tipo Documento")
+        if not doc.sifen_tipo_impuesto:
+            errores.append("SIFEN Tipo Impuesto")
+
+    if not doc.sifen_autofactura and doc.sifen_contribuyente:
+        if not doc.sifen_tipo_contribuyente:
+            errores.append("SIFEN Tipo Contribuyente")
+        if not doc.sifen_tipo_impuesto:
+            errores.append("SIFEN Tipo Impuesto")
+
+    if errores:
+        frappe.throw(
+            _("Campos requeridos:<br>{}").format(
+                "<br>".join(errores)
+            ),
+            title=_("Validación SIFEN")
+        )
+
+
 def before_insert(doc, method=None):
     """
     Generate SIFEN supplier code automatically before inserting Supplier.

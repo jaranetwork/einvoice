@@ -141,6 +141,7 @@ doc_events = {
     },
     "Supplier": {
         "before_insert": "einvoice.e_invoice.doctype.supplier.supplier.before_insert",
+        "validate": "einvoice.e_invoice.doctype.supplier.supplier.validate",
     },
     "Sales Invoice": {
         "validate": [

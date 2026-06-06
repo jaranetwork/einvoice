@@ -125,15 +125,16 @@ def build_data_section(doc, company, establecimiento, punto, numero, fecha=None,
         "fecha": fecha,
         "tipoEmision": _get_tipo_emision(doc),
         "tipoTransaccion": _get_tipo_transaccion(doc),
-        "tipoImpuesto": tipo_impuesto_code,
         "moneda": moneda,
-        "cliente": cliente_section,
         "usuario": usuario,
         "factura": factura,
         "condicion": condicion,
         "items": items,
         "totalPago": total_pago
     }
+
+    if tipo_impuesto_code is not None:
+        data["tipoImpuesto"] = tipo_impuesto_code
 
     if doc.doctype != "Delivery Note":
         data["observacion"] = observacion
