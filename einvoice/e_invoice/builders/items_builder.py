@@ -118,9 +118,9 @@ def _get_item_tax_template(item, item_details):
 
 def _get_iva_proporcion(iva_tipo):
     """Determine IVA proportion based on IVA type."""
-    if iva_tipo == 3:  # Exento
+    if iva_tipo in (2, 3):  # Exonerado, Exento
         return 0
-    return 100  # Gravado/Exonerado
+    return 100  # Gravado, Parcial
 
 
 def _get_iva_rate(iva_tipo, iva_tasa):

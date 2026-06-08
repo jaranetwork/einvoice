@@ -6,6 +6,7 @@ from einvoice.e_invoice.utils import (
     download_xml,
     download_pdf
 )
+from einvoice.e_invoice.utils.api_client import enqueue_status_check
 import json
 
 def generate_einvoice_manually(doc, method=None):
@@ -130,8 +131,7 @@ def generate_einvoice_manually_button(invoice_name, regenerate=False):
             # Enqueue background job to check status periodically
             factura_id = result.get("data", {}).get("facturaId")
             if factura_id:
-                frappe.enqueue(
-                    "einvoice.e_invoice.utils.api_client.check_invoice_status_background",
+                enqueue_status_check(
                     invoice_name=invoice_name,
                     factura_id=factura_id,
                     user=frappe.session.user,

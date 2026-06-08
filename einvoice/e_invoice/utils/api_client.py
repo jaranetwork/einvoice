@@ -195,6 +195,19 @@ def validar_campos_sifen(doc, method=None):
         frappe.throw("<br><br>".join(errors), title=_("Missing Required Fields for E-Invoice"))
 
 
+def validar_sifen_tipo_transaccion(doc, method=None):
+    """Validate sifen_tipo_transaccion on submit (before_submit) and after update (on_update_after_submit).
+
+    Runs only for Sales Invoice and POS Invoice.
+    """
+    if doc.doctype == "Sales Invoice" or doc.doctype == "POS Invoice":
+        if not doc.get("sifen_tipo_transaccion"):
+            frappe.throw(_(
+                "SIFEN Tipo de Transacci\u00F3n es requerido.<br><br>"
+                "Seleccione un tipo de transacci\u00F3n SIFEN antes de continuar."
+            ), title=_("Campos Requeridos"))
+
+
 def send_invoice_to_external_api(doc):
     """
     Send invoice to SIFEN API.
@@ -569,11 +582,11 @@ def check_invoice_status_background(invoice_name, factura_id, user, doctype="Sal
     """
     import time
 
-    max_attempts = 30
+    max_attempts = 10
     last_estado = ""
 
     for attempt in range(max_attempts):
-        time.sleep(10)
+        time.sleep(5)
 
         try:
             result = get_invoice_status(factura_id)
@@ -633,3 +646,41 @@ def check_invoice_status_background(invoice_name, factura_id, user, doctype="Sal
         if estado in ("Aceptado", "Rechazado"):
             frappe.publish_realtime("sifen_status_final", event_data, user=user)
             break
+
+
+def enqueue_status_check(invoice_name, factura_id, user, doctype="Sales Invoice"):
+    """
+    Verifica que haya RQ worker activo y enqueúa el background job.
+
+    Args:
+        invoice_name: Invoice/Note name
+        factura_id: SIFEN factura ID
+        user: Frappe user to notify
+        doctype: DocType name (default: Sales Invoice)
+    """
+    from frappe.utils.background_jobs import get_workers
+    workers = get_workers()
+    if not workers:
+        frappe.log_error(
+            f"No RQ workers found. Background job will not be processed.\n"
+            f"Invoice: {invoice_name}, Doctype: {doctype}, Factura ID: {factura_id}",
+            "SIFEN - RQ Worker Check"
+        )
+        frappe.throw(
+            _("No hay workers RQ activos.<br><br>"
+              "El monitoreo en tiempo real requiere un worker corriendo.<br><br>"
+              "Para iniciarlo ejecute en la terminal:<br>"
+              "<code>bench worker --queue short,long,default</code>"),
+            title=_("RQ Worker No Disponible")
+        )
+
+    frappe.enqueue(
+        "einvoice.e_invoice.utils.api_client.check_invoice_status_background",
+        invoice_name=invoice_name,
+        factura_id=factura_id,
+        user=user,
+        doctype=doctype,
+    )
+
+
+

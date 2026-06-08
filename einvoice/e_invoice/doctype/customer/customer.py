@@ -7,6 +7,33 @@ from frappe.utils import now_datetime
 
 def validate(doc, method=None):
     validate_customer_group_for_sifen(doc)
+    validate_sifen_fields(doc)
+
+def validate_sifen_fields(doc):
+    errores = []
+
+    if doc.sifen_contribuyente:
+        if not doc.sifen_tipo_contribuyente:
+            errores.append("SIFEN Tipo Contribuyente")
+        if not doc.tax_id:
+            errores.append("Tax ID (RUC)")
+        if not doc.sifen_tipo_impuesto:
+            errores.append("SIFEN Tipo Impuesto")
+    else:
+        if not doc.sifen_tipo_documento:
+            errores.append("SIFEN Tipo Documento")
+        if not doc.tax_id:
+            errores.append("Tax ID (RUC)")
+        if not doc.sifen_tipo_impuesto:
+            errores.append("SIFEN Tipo Impuesto")
+
+    if errores:
+        frappe.throw(
+            _("Campos requeridos según condición SIFEN:<br>{}").format(
+                "<br>".join(errores)
+            ),
+            title=_("Validación SIFEN")
+        )
 
 def validate_customer_group_for_sifen(doc):
     if doc.customer_group == "All Customer Groups":

@@ -26,7 +26,9 @@ app_license = "gpl-3.0"
 # webform_include_css = {"doctype": "public/css/doctype.css"}
 
 # include js in page
-# page_js = {"page" : "public/js/file.js"}
+page_js = {
+    "point-of-sale": "e_invoice/public/js/pos_sifen.js"
+}
 
 # include js in doctype views
 doctype_js = {
@@ -148,6 +150,8 @@ doc_events = {
             "einvoice.e_invoice.utils.api_client.asignar_numero_control",
             "einvoice.e_invoice.utils.api_client.validar_campos_sifen",
         ],
+        "before_submit": "einvoice.e_invoice.utils.api_client.validar_sifen_tipo_transaccion",
+        "on_update_after_submit": "einvoice.e_invoice.utils.api_client.validar_sifen_tipo_transaccion",
         "on_cancel": "einvoice.e_invoice.doc_events.sales_invoice.on_cancel",
     },
     "Purchase Invoice": {
@@ -163,6 +167,9 @@ doc_events = {
             "einvoice.e_invoice.utils.api_client.validar_campos_sifen",
         ],
         "on_cancel": "einvoice.e_invoice.doc_events.delivery_note.on_cancel",
+    },
+    "POS Invoice": {
+        "before_submit": "einvoice.e_invoice.utils.api_client.validar_sifen_tipo_transaccion",
     },
     "Vehicle": {
         "validate": "einvoice.e_invoice.doctype.vehicle.vehicle.validate",

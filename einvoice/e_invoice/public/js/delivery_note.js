@@ -1,6 +1,11 @@
 // Delivery Note E-Invoice functionality (autofactura)
 
+var _sifen_update_timeout = null;
+
 function _apply_einvoice_data(data) {
+    if (!cur_frm || cur_frm.doc.name !== data.invoice_name) return;
+    if (data.doctype && data.doctype !== "Delivery Note") return;
+
     if (data.estado) cur_frm.set_value("custom_sifen_estado", data.estado);
     if (data.cdc) cur_frm.set_value("custom_sifen_cdc", data.cdc);
     if (data.correlativo) cur_frm.set_value("custom_sifen_correlativo", data.correlativo);
@@ -14,9 +19,10 @@ frappe.realtime.on("sifen_status_update", function(data) {
         message: __("E-Factura {0}: {1}", [data.invoice_name, data.estado]),
         indicator: data.estado === "Aceptado" ? "green" : "orange"
     });
-    if (cur_frm && cur_frm.doc.name === data.invoice_name && data.doctype === "Delivery Note") {
+    clearTimeout(_sifen_update_timeout);
+    _sifen_update_timeout = setTimeout(function() {
         _apply_einvoice_data(data);
-    }
+    }, 300);
 });
 
 frappe.realtime.on("sifen_status_final", function(data) {
@@ -24,9 +30,8 @@ frappe.realtime.on("sifen_status_final", function(data) {
         message: __("✅ E-Factura {0}: {1}", [data.invoice_name, data.estado]),
         indicator: data.estado === "Aceptado" ? "green" : "red"
     });
-    if (cur_frm && cur_frm.doc.name === data.invoice_name && data.doctype === "Delivery Note") {
-        _apply_einvoice_data(data);
-    }
+    clearTimeout(_sifen_update_timeout);
+    _apply_einvoice_data(data);
 });
 
 function update_einvoice_buttons(frm) {

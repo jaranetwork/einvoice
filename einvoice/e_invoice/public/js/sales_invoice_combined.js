@@ -1,19 +1,29 @@
 // Combined script for Sales Invoice - includes both custom buttons and E-Invoice Records tab
 
 // Realtime listener for SIFEN status updates (funciona en cualquier página)
+var _sifen_update_timeout = null;
+
+function _apply_sifen_update(data) {
+    if (!cur_frm || cur_frm.doc.name !== data.invoice_name) return;
+    if (data.doctype && data.doctype !== "Sales Invoice") return;
+
+    if (data.estado) cur_frm.set_value("custom_sifen_estado", data.estado);
+    if (data.cdc) cur_frm.set_value("custom_sifen_cdc", data.cdc);
+    if (data.correlativo) cur_frm.set_value("custom_sifen_correlativo", data.correlativo);
+    if (data.factura_id) cur_frm.set_value("custom_sifen_factura_id", data.factura_id);
+    if (data.generated_date) cur_frm.set_value("custom_einvoice_generated_date", data.generated_date);
+    update_einvoice_buttons(cur_frm);
+}
+
 frappe.realtime.on("sifen_status_update", function(data) {
     frappe.show_alert({
         message: __("E-Factura {0}: {1}", [data.invoice_name, data.estado]),
         indicator: data.estado === "Aceptado" ? "green" : "orange"
     });
-    if (cur_frm && cur_frm.doc.name === data.invoice_name && (!data.doctype || data.doctype === "Sales Invoice")) {
-        cur_frm.set_value("custom_sifen_estado", data.estado);
-        if (data.cdc) cur_frm.set_value("custom_sifen_cdc", data.cdc);
-        if (data.correlativo) cur_frm.set_value("custom_sifen_correlativo", data.correlativo);
-        if (data.factura_id) cur_frm.set_value("custom_sifen_factura_id", data.factura_id);
-        if (data.generated_date) cur_frm.set_value("custom_einvoice_generated_date", data.generated_date);
-        update_einvoice_buttons(cur_frm);
-    }
+    clearTimeout(_sifen_update_timeout);
+    _sifen_update_timeout = setTimeout(function() {
+        _apply_sifen_update(data);
+    }, 300);
 });
 
 frappe.realtime.on("sifen_status_final", function(data) {
@@ -21,14 +31,8 @@ frappe.realtime.on("sifen_status_final", function(data) {
         message: __("✅ E-Factura {0}: {1}", [data.invoice_name, data.estado]),
         indicator: data.estado === "Aceptado" ? "green" : "red"
     });
-    if (cur_frm && cur_frm.doc.name === data.invoice_name && (!data.doctype || data.doctype === "Sales Invoice")) {
-        cur_frm.set_value("custom_sifen_estado", data.estado);
-        if (data.cdc) cur_frm.set_value("custom_sifen_cdc", data.cdc);
-        if (data.correlativo) cur_frm.set_value("custom_sifen_correlativo", data.correlativo);
-        if (data.factura_id) cur_frm.set_value("custom_sifen_factura_id", data.factura_id);
-        if (data.generated_date) cur_frm.set_value("custom_einvoice_generated_date", data.generated_date);
-        update_einvoice_buttons(cur_frm);
-    }
+    clearTimeout(_sifen_update_timeout);
+    _apply_sifen_update(data);
 });
 
 /**
@@ -84,7 +88,10 @@ function update_einvoice_buttons(frm) {
                         method: 'einvoice.e_invoice.doc_events.sales_invoice.generate_einvoice_manually_button',
                         args: { invoice_name: frm.doc.name, regenerate: true },
                         callback: function(r) {
-                            if (r.message) { frappe.show_alert({ message: __('✅ E-Invoice reenviada. Verificando estado automáticamente...'), indicator: 'green' }); }
+                            if (r.message) {
+                                frappe.show_alert({ message: __('✅ E-Invoice reenviada. Verificando estado automáticamente...'), indicator: 'green' });
+                                update_einvoice_buttons(frm);
+                            }
                         }
                     });
                 });
