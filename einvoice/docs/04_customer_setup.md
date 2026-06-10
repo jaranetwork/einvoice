@@ -6,7 +6,7 @@ Este documento describe la configuración requerida en **Customer** para el mód
 
 ## Campos Obligatorios SIFEN
 
-### 1. sifen_contribuyente
+### 1. SIFEN Es contribuyente?
 
 - **Fieldname**: `sifen_contribuyente`
 - **Fieldtype**: Check
@@ -26,13 +26,36 @@ Customer → Tax Information → Es contribuyente? = ✓ (marcado)
 
 ---
 
-### 2. sifen_tipo_documento
+### 2. SIFEN Tipo Contribuyente
+
+- **Fieldname**: `sifen_tipo_contribuyente`
+- **Fieldtype**: Select
+- **Sección**: Tax Information (después de sifen_contribuyente)
+- **Label**: "SIFEN Tipo Contribuyente"
+- **Descripción**: Tipo de contribuyente según SIFEN
+- **Visibilidad**: Solo se muestra cuando **Es contribuyente? = ✓**
+- **Opciones**:
+  ```
+  1|Persona Física
+  2|Persona Jurídica
+  ```
+- **Obligatorio**: ✅ Sí (cuando es contribuyente)
+
+**Configuración:**
+```
+Customer → Tax Information → SIFEN Tipo Contribuyente = "1|Persona Física"
+```
+
+---
+
+### 3. SIFEN Tipo Documento
 
 - **Fieldname**: `sifen_tipo_documento`
 - **Fieldtype**: Select
 - **Sección**: Tax Information (después de sifen_contribuyente)
 - **Label**: "SIFEN Tipo Documento"
 - **Descripción**: Tipo de documento del cliente según SIFEN
+- **Visibilidad**: Solo se muestra cuando **Es contribuyente? = ☐ (desmarcado)**
 - **Opciones**:
   ```
   1|RUC
@@ -40,7 +63,7 @@ Customer → Tax Information → Es contribuyente? = ✓ (marcado)
   3|Pasaporte
   4|Otro
   ```
-- **Obligatorio**: ✅ Sí
+- **Obligatorio**: ✅ Sí (cuando NO es contribuyente)
 
 **Configuración:**
 ```
@@ -54,16 +77,16 @@ Customer → Tax Information → SIFEN Tipo Documento = "1|RUC"
 | B2B | RUC | 1 |
 | B2G | RUC | 1 |
 | B2C | RUC o CI | 1 o 2 |
-| B2F | Pasaporte u Otro | 3 o 4 |
+| Consumidor Final (Extranjero) | Pasaporte u Otro | 3 o 4 |
 
 **Validaciones:**
 - B2B/B2G: Debe ser "1" (RUC)
 - B2C: Debe ser "1" (RUC) o "2" (CI)
-- B2F: Debe ser "3" (Pasaporte) o "4" (Otro)
+- Consumidor Final (Extranjero): Debe ser "3" (Pasaporte) o "4" (Otro)
 
 ---
 
-### 3. sifen_tipo_impuesto
+### 4. SIFEN Tipo Impuesto
 
 - **Fieldname**: `sifen_tipo_impuesto`
 - **Fieldtype**: Select
@@ -74,11 +97,15 @@ Customer → Tax Information → SIFEN Tipo Documento = "1|RUC"
   ```
   1|IVA (cliente local contribuyente)
   2|ISC (productos con impuesto selectivo)
-  3|Renta (cliente extranjero B2F con RUC)
+  3|Renta (cliente extranjero con RUC)
   4|Ninguno (cliente extranjero sin RUC, consumidor final)
   5|IVA - Renta (mixto)
   ```
 - **Obligatorio**: ✅ Sí
+
+> **Nota:** Este campo establece el `tipoImpuesto` a nivel cabecera del payload.
+> El `ivaTipo` a nivel de cada **item** se determina exclusivamente desde la
+> **Item Tax Template** (campo `sifen_tipo_iva`). Ver [Configuración de Items](05_items_setup.md).
 
 **Configuración:**
 ```
@@ -95,12 +122,12 @@ Customer → Tax Information → SIFEN Tipo Impuesto = "1|IVA (cliente local con
 | B2C (Paraguay) | IVA | 1 | Cliente local contribuyente |
 | B2C (Paraguay) | ISC | 2 | Productos con impuesto selectivo |
 | B2G (Paraguay) | IVA | 1 | Gobierno contribuyente |
-| B2F (Extranjero) | Renta | 3 | Extranjero con RUC |
-| B2F (Extranjero) | Ninguno | 4 | Extranjero sin RUC |
+| Extranjero (con RUC) | Renta | 3 | Cliente extranjero con RUC |
+| Extranjero (sin RUC) | Ninguno | 4 | Consumidor final extranjero |
 
 **Validaciones:**
 - Paraguay (B2B/B2C/B2G): 1, 2, o 5 (NO 3 o 4)
-- Extranjero (B2F): 3 o 4 (NO 1, 2, o 5)
+- Extranjero: 3 o 4 (NO 1, 2, o 5)
 
 ---
 
@@ -241,12 +268,21 @@ Menu → Selling → Customers → Customer List
 
 ### Paso 3: Completar Tax Information
 
-Desplazarse hasta la sección **Tax Information**:
+Desplazarse hasta la sección **Tax Information** y completar según el tipo de cliente:
 
+**Si es contribuyente (B2B/B2G):**
 ```
-1. Tax ID: 123456-1 (para B2B/B2G)
-2. Es contribuyente?: ✓ (marcar si es contribuyente)
-3. SIFEN Tipo Documento: 1|RUC
+1. Tax ID: 123456-1
+2. Es contribuyente?: ✓ (marcado)
+3. SIFEN Tipo Contribuyente: 1|Persona Física o 2|Persona Jurídica
+4. SIFEN Tipo Impuesto: 1|IVA (cliente local contribuyente)
+```
+
+**Si NO es contribuyente (B2C):**
+```
+1. Tax ID: (Según tipo documento)
+2. Es contribuyente?: ☐ (desmarcado)
+3. SIFEN Tipo Documento: 1|CI (Cédula de Identidad) o 2|Pasaporte etc.
 4. SIFEN Tipo Impuesto: 1|IVA (cliente local contribuyente)
 ```
 
@@ -267,64 +303,43 @@ Desplazarse hasta la sección **Tax Information**:
    ```
 4. Guardar
 
-### Paso 5: Verificar Customer Group
+### Paso 5: Seleccionar Categoria del Ciente
 
-El **Customer Group** determina el tipo de operación:
+El **Categoria del Ciente** es **obligatorio** y determina el tipo de operación.
+No puede usarse "Todas las Categorias".
 
 ```
 Menu → Selling → Customer Group
 
-- Para B2B: "Company" o similar
-- Para B2C: "Individual" o "Consumer"
+- Para B2B: "Comercial" o una categoría empresarial
+- Para B2C: "Persona Física" o "Consumer"
 - Para B2G: "Government" o "Gubernamental"
+- Para B2F: "Sin fines de lucro" o "Foundation"
 ```
 
----
+## Valores de tipoOperacion
 
-## Tipos de Operación (Determinación Automática)
-
-El sistema determina automáticamente el `tipoOperacion` basado en:
-
-### 1. País del Address
-
-```
-Si country ≠ "Paraguay" → tipoOperacion = 4 (B2F)
-```
-
-### 2. Customer Type
-
-```
-Si customer_type = "Company":
-  Si customer_group contiene "gubernamental" → tipoOperacion = 3 (B2G)
-  Si no → tipoOperacion = 1 (B2B)
-
-Si customer_type = "Individual":
-  Si country = "Paraguay" → tipoOperacion = 2 (B2C)
-  Si country ≠ "Paraguay" → tipoOperacion = 4 (B2F)
-```
-
-### 3. Tax ID (RUC)
-
-```
-Si no tiene tax_id:
-  Si country ≠ "Paraguay" → tipoOperacion = 4 (B2F)
-  Si no → tipoOperacion = 2 (B2C)
-```
+| Código | Tipo | Descripción |
+|--------|------|-------------|
+| 1 | B2B | Venta entre empresas (ambos contribuyentes) |
+| 2 | B2C | Consumidor final nacional o extranjero |
+| 3 | B2G | Gobierno/Entidades públicas |
+| 4 | B2F | **Fundaciones y Asociaciones sin fines de lucro** (SIFEN v150) |
 
 ---
 
 ## Ejemplos de Configuración
 
-### Ejemplo 1: Customer B2B (Paraguay)
+### Ejemplo 1: Customer B2B (Paraguay — Contribuyente)
 
 ```
 Customer:
   - Customer Name: "Empresa S.A."
   - Customer Type: "Company"
-  - Customer Group: "Company"
+  - Categoria del Cliente: "Comercial"
   - Tax ID: "123456-1"
   - sifen_contribuyente: ✓ (marcado)
-  - sifen_tipo_documento: "1|RUC"
+  - sifen_tipo_contribuyente: "2|Persona Jurídica"
   - sifen_tipo_impuesto: "1|IVA (cliente local contribuyente)"
 
 Address:
@@ -340,14 +355,14 @@ Resultado:
   - tipoImpuesto: 1 (IVA)
 ```
 
-### Ejemplo 2: Customer B2C (Consumidor Final)
+### Ejemplo 2: Customer B2C (Consumidor Final — No Contribuyente)
 
 ```
 Customer:
   - Customer Name: "Juan Pérez"
   - Customer Type: "Individual"
-  - Customer Group: "Individual"
-  - Tax ID: (vacío)
+  - Categoria del Cliente: "Persona Física"
+  - Tax ID: (Según tipo documento, CI, Pasaporte)
   - sifen_contribuyente: ☐ (desmarcado)
   - sifen_tipo_documento: "2|CI (Cédula de Identidad)"
   - sifen_tipo_impuesto: "1|IVA (cliente local contribuyente)"
@@ -360,17 +375,17 @@ Address:
 
 Resultado:
   - tipoOperacion: 2 (B2C)
-  - tipoImpuesto: 4 (Ninguno, por no tener RUC)
+  - tipoImpuesto: 1 (cliente local contribuyente)
 ```
 
-### Ejemplo 3: Customer B2F (Extranjero)
+### Ejemplo 3: Customer Extranjero — No Contribuyente
 
 ```
 Customer:
   - Customer Name: "John Doe"
   - Customer Type: "Individual"
-  - Customer Group: "Individual"
-  - Tax ID: (vacío o RUC extranjero)
+  - Categoria del Cliente: "Persona Física"
+  - Tax ID: (Según tipo documento)
   - sifen_contribuyente: ☐ (desmarcado)
   - sifen_tipo_documento: "3|Pasaporte"
   - sifen_tipo_impuesto: "4|Ninguno (cliente extranjero sin RUC, consumidor final)"
@@ -382,21 +397,21 @@ Address:
   - City: "New York"
 
 Resultado:
-  - tipoOperacion: 4 (B2F)
+  - tipoOperacion: 2 (B2C - Consumidor Final)
   - tipoImpuesto: 4 (Ninguno)
   - departamento/distrito/ciudad: null
 ```
 
-### Ejemplo 4: Customer B2G (Gobierno)
+### Ejemplo 4: Customer B2G (Gobierno — Contribuyente)
 
 ```
 Customer:
   - Customer Name: "Ministerio de Hacienda"
   - Customer Type: "Company"
-  - Customer Group: "Government" o "Gubernamental"
+  - Categoria del Cliente: "Gubernamental"
   - Tax ID: "123456-1"
   - sifen_contribuyente: ✓ (marcado)
-  - sifen_tipo_documento: "1|RUC"
+  - sifen_tipo_contribuyente: "2|Persona Jurídica"
   - sifen_tipo_impuesto: "1|IVA (cliente local contribuyente)"
 
 Address:
@@ -414,17 +429,27 @@ Resultado:
 
 ## Validaciones
 
-Al guardar una Sales Invoice, el sistema valida:
+### En Customer (al guardar el Customer)
+
+| Campo | Validación | Error si falla |
+|-------|-----------|----------------|
+| sifen_contribuyente | ✓ + sifen_tipo_contribuyente requerido | "SIFEN Tipo Contribuyente es requerido para contribuyentes" |
+| sifen_contribuyente | ✓ + tax_id requerido | "Tax ID es requerido para contribuyentes" |
+| sifen_contribuyente | ☐ + sifen_tipo_documento requerido | "SIFEN Tipo Documento es requerido para no contribuyentes" |
+| customer_group | No puede ser "Todas las Categorias" | "Categoria del Cliente no puede ser Todas las Categorias" |
+
+### En Sales Invoice / POS Invoice (al guardar o validar)
 
 | Campo | Validación | Error si falta |
 |-------|-----------|----------------|
 | sifen_tipo_documento | No vacío | "SIFEN Tipo Documento del cliente está vacío" |
 | sifen_tipo_impuesto | No vacío | "SIFEN Tipo Impuesto del cliente está vacío" |
+| sifen_tipo_transaccion | No vacío (en Sales Invoice / POS Invoice) | "SIFEN Tipo de Transacción es requerido" |
 | sifen_tipo_documento (B2B/B2G) | = "1" | "Debe tener SIFEN Tipo Documento = 'RUC'" |
 | sifen_tipo_documento (B2C) | = "1" o "2" | "Debe tener SIFEN Tipo Documento = 'RUC' o 'CI'" |
-| sifen_tipo_documento (B2F) | = "3" o "4" | "Debe tener SIFEN Tipo Documento = 'Pasaporte' o 'Otro'" |
+| sifen_tipo_documento (Extranjero) | = "3" o "4" | "Debe tener SIFEN Tipo Documento = 'Pasaporte' o 'Otro'" |
 | sifen_tipo_impuesto (Paraguay) | 1, 2, o 5 | "No es coherente con el tipo de operación" |
-| sifen_tipo_impuesto (B2F) | 3 o 4 | "No es coherente con el tipo de operación" |
+| sifen_tipo_impuesto (Extranjero) | 3 o 4 | "No es coherente con el tipo de operación" |
 | Address.state (Paraguay) | No vacío | "Departamento (State) es obligatorio" |
 | Address.county (Paraguay) | No vacío | "Distrito (County) es obligatorio" |
 | Address.city (Paraguay) | No vacío | "Ciudad (City) es obligatoria" |
@@ -479,4 +504,4 @@ Address → State = usar botón 🔍 Buscar Departamento
 
 ---
 
-**Última actualización:** 2026-03-25
+**Última actualización:** 2026-06-10

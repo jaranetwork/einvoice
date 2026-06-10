@@ -32,7 +32,7 @@ Este documento describe el flujo completo de trabajo con el módulo E-Invoice.
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│ 4. ENVIAR A FEPY                                               │
+│ 4. ENVIAR A DTE-PY                                               │
 │    - Menú E-Invoice → Generar E-Invoice                             │
 │    - Construye payload (param + data)                           │
 │    - Envía a API externa                                        │
@@ -147,9 +147,9 @@ Para facturas **de Contado** sin pagos registrados:
    - Crear Payment Entry contra la factura, o
    - Agregar en tabla Payments
 
-4. **Enviar a FEPY**:
+4. **Enviar a DTE-PY**:
    - El sistema verifica que existan pagos
-   - Si no hay pagos → Error: "Agrega un pago en Entrada de Pago para enviar a FEPY"
+   - Si no hay pagos → Error: "Agrega un pago en Entrada de Pago para enviar a DTE-PY"
 
 **Nota:** Para facturas a **Crédito**, este campo **no es necesario**.
 
@@ -186,6 +186,9 @@ Menú → E-Invoice → Send to SIFEN
 2. **Construir payload**:
    - param (datos de empresa)
    - data (datos de factura)
+   - `templateFactura`: determinado automáticamente
+     - `"ticket"` si la factura es POS Invoice o tiene `Incluir Pago (POS)` activado
+     - `"normal"` en caso contrario
 3. **Enviar a API** externa
 4. **Guardar respuesta**:
    - custom_sifen_factura_id
@@ -243,7 +246,7 @@ Menú → E-Invoice → Download KUDE
 | 1 | Validada | Factura submitida |
 | 2 | Cancelada | Factura cancelada |
 
-### Estados en FEPY - SIFEN
+### Estados en DTE-PY - SIFEN
 
 | Estado | Descripción |
 |--------|-------------|
@@ -267,12 +270,11 @@ Menú → E-Invoice → Download KUDE
 
 | Botón | Menú | Visible | Acción |
 |-------|------|---------|--------|
-| Generar E-Invoice | E-Invoice | Todos | Enviar a FEPY |
+| Generar E-Invoice | E-Invoice | Todos | Enviar a DTE-PY |
 | Regenerate and Send | E-Invoice | Administrator | Regenerar y reenviar |
 | Download XML | E-Invoice | Todos | Descargar XML |
 | Download KUDE | E-Invoice | Todos | Descargar KUDE |
-| Check Local Status | E-Invoice | Todos | Ver estado local |
-| Refresh Status | E-Invoice | Todos | Actualizar desde FEPY |
+| Refresh Status | E-Invoice | Todos | Actualizar desde DTE-PY |
 
 ---
 
@@ -306,7 +308,7 @@ Menú → E-Invoice → Download KUDE
 
 ```
 1. Crear Sales Invoice
-2. Customer: Juan Pérez (B2C, sin RUC)
+2. Customer: Juan Pérez (B2C)
 3. Items: Productos con IVA 10%
 4. Payment Terms: Contado
 5. Validate → Valida tipo_documento = "2" (CI)

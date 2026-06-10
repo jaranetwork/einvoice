@@ -15,8 +15,8 @@ Envía datos de facturación de ERPNext al sistema DTE-PY para la generación de
 ---
 
 ## Requisitos
-- Frappe Framework v15 docker
-- ERPNext v15
+- Frappe Framework v16 docker
+- ERPNext v16
 - Timbrado habilitado en SET
 
 ---
@@ -45,7 +45,7 @@ Ver [Documentación Completa](einvoice/docs/00_index.md) para más detalles.
 
 1. Crear Sales Invoice
 2. Validar factura (Submit)
-3. Menú E-Invoice → Send to DTE-PY
+3. Menú E-Invoice → Generate E-Invoice
 4. Descargar XML/KUDE
 
 ---

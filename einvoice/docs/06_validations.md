@@ -8,33 +8,51 @@ Este documento describe todas las validaciones automáticas que se ejecutan al g
 
 ### Cuándo se Ejecutan
 
-Las validaciones se ejecutan en el evento **`validate`** de Sales Invoice:
+Las validaciones se ejecutan en diferentes eventos según el tipo de factura:
 
 ```python
-# hooks.py
+# hooks.py (extracto relevante)
 doc_events = {
     "Sales Invoice": {
         "validate": [
             "einvoice.e_invoice.utils.api_client.asignar_numero_control",
             "einvoice.e_invoice.utils.api_client.validar_campos_sifen",
         ],
-    }
+        "before_submit": "einvoice.e_invoice.utils.api_client.validar_sifen_tipo_transaccion",
+        "on_update_after_submit": "einvoice.e_invoice.utils.api_client.validar_sifen_tipo_transaccion",
+    },
+    "Purchase Invoice": {
+        "validate": [
+            "einvoice.e_invoice.utils.api_client.asignar_numero_control",
+            "einvoice.e_invoice.utils.api_client.validar_campos_sifen",
+        ],
+    },
+    "Delivery Note": {
+        "validate": [
+            "einvoice.e_invoice.utils.api_client.asignar_numero_control",
+            "einvoice.e_invoice.utils.api_client.validar_campos_sifen",
+        ],
+    },
+    "POS Invoice": {
+        "before_submit": "einvoice.e_invoice.utils.api_client.validar_sifen_tipo_transaccion",
+    },
 }
 ```
 
 ### Orden de Ejecución
 
-1. **`asignar_numero_control()`** → Genera número de control (9 dígitos)
-2. **`validar_campos_sifen()`** → Valida todos los campos SIFEN
+1. **`validate`**: `asignar_numero_control()` → `validar_campos_sifen()` (Sales Invoice, Purchase Invoice, Delivery Note)
+2. **`before_submit`**: `validar_sifen_tipo_transaccion()` (Sales Invoice, POS Invoice)
+3. **`on_update_after_submit`**: `validar_sifen_tipo_transaccion()` (solo Sales Invoice)
 
 ### Cuándo se Disparan
 
-| Acción | ¿Ejecuta Validaciones? |
-|--------|----------------------|
-| Guardar (Borrador) | ✅ Sí |
-| Validar (Submit) | ✅ Sí |
-| Actualizar (Validada) | ✅ Sí |
-| Cancelar | ❌ No |
+| Acción | `validate` (campos SIFEN) | `before_submit` (tipo transacción) |
+|--------|--------------------------|-----------------------------------|
+| Guardar (Borrador) | ✅ Sí | ❌ No |
+| Validar (Submit) | ✅ Sí | ✅ Sí |
+| Actualizar (Validada) | ✅ Sí | ✅ Sí |
+| Cancelar | ❌ No | ❌ No |
 
 ---
 
@@ -69,9 +87,9 @@ doc_events = {
 | sifen_tipo_impuesto | No vacío | "El SIFEN Tipo Impuesto del cliente está vacío" |
 | sifen_tipo_documento (B2B/B2G) | = "1" | "El cliente para operación {0} debe tener SIFEN Tipo Documento = 'RUC'" |
 | sifen_tipo_documento (B2C) | = "1" o "2" | "El cliente para operación B2C debe tener SIFEN Tipo Documento = 'RUC' o 'CI'" |
-| sifen_tipo_documento (B2F) | = "3" o "4" | "El cliente extranjero (B2F) debe tener SIFEN Tipo Documento = 'Pasaporte' o 'Otro'" |
+| sifen_tipo_documento (Extranjero) | = "3" o "4" | "El cliente extranjero debe tener SIFEN Tipo Documento = 'Pasaporte' o 'Otro'" |
 | sifen_tipo_impuesto (Paraguay) | 1, 2, o 5 | "El SIFEN Tipo Impuesto no es coherente con el tipo de operación" |
-| sifen_tipo_impuesto (B2F) | 3 o 4 | "El SIFEN Tipo Impuesto no es coherente con el tipo de operación" |
+| sifen_tipo_impuesto (Extranjero) | 3 o 4 | "El SIFEN Tipo Impuesto no es coherente con el tipo de operación" |
 | Tax ID (B2B/B2G) | No vacío | "El RUC del cliente es obligatorio para operación {0}" |
 
 ---
@@ -83,12 +101,11 @@ doc_events = {
 | State (Paraguay) | No vacío, formato correcto | "El Departamento (State) es obligatorio" / "debe estar en formato '1\|CAPITAL' o '1'" |
 | County (Paraguay) | No vacío | "El Distrito (County) es obligatorio" |
 | City (Paraguay) | No vacío | "La Ciudad (City) es obligatoria" |
-| Country (B2F) | ≠ Paraguay | "La operación B2F (Extranjero) requiere un país diferente a Paraguay" |
+| Country (Extranjero) | ≠ Paraguay | "La operación con cliente extranjero requiere un país diferente a Paraguay" |
 
 ---
 
 ### 4. Items
-
 | Campo | Validación | Error si falla |
 |-------|-----------|----------------|
 | Item Code | No vacío | "El código del item es obligatorio para el item #{0}" |
@@ -119,45 +136,23 @@ doc_events = {
 
 ---
 
-### 7. Número de Control
+### 8. Tipo de Transacción SIFEN
 
 | Campo | Validación | Error si falla |
 |-------|-----------|----------------|
-| custom_numero_control | 9 dígitos | "El Número de Control debe tener exactamente 9 dígitos" |
-| custom_numero_control | Solo números | "El Número de Control debe contener solo dígitos" |
+| sifen_tipo_transaccion | No vacío | "SIFEN Tipo de Transacción es requerido" |
+
+**Se aplica a:** Sales Invoice (antes de validar), POS Invoice (antes de validar), Sales Invoice (al actualizar después de validar).
 
 ---
 
-### 8. Notas de Crédito y Débito (NC/ND)
+### 9. Notas de Crédito y Débito (NC/ND)
 
 | Validación | Descripción | Error si falla |
 |-----------|-------------|----------------|
 | return_against | Obligatorio para NC/ND | "Credit/Debit Note must reference an original invoice in 'Return Against' field" |
 | CDC en factura original | La factura referenciada debe tener CDC | "Original invoice {0} does not have a CDC (Código de Control). The referenced invoice must have a valid CDC from SIFEN before creating a Credit/Debit Note." |
 | sifen_motivo_nota_credito_debito | Obligatorio para NC/ND | "El motivo de la Nota de Crédito/Débito es obligatorio" |
-
----
-
-### 9. Campo "Incluir Pago Después de Validar"
-
-Este campo permite validar facturas **de Contado** sin pagos registrados, pero **bloquea el envío a FEPY** hasta que se registren los pagos.
-
-| Validación | Descripción | Error si falla |
-|-----------|-------------|----------------|
-| is_pos AND incluir_pago_despues_validar | Solo uno puede estar marcado | "Only one of the following options can be selected: Include Payment (POS) or Include Payment After Validate" |
-| incluir_pago_despues_validar + Sin pagos | Bloquea envío a FEPY | "Agrega un pago en Entrada de Pago para enviar a FEPY." |
-
-**Propósito:**
-- Permitir validar facturas de Contado sin pagos (útil cuando el pago se registra después)
-- Bloquear el envío a FEPY hasta que existan Payment Entries vinculados
-
-**Flujo correcto:**
-1. Marcar "Incluir Pago Después de Validar" (en Borrador)
-2. Validar factura (Submit) ✅
-3. Crear Payment Entry contra la factura
-4. Click en "Generar E-Invoice" ✅
-
-**Nota:** Para facturas a **Crédito**, este campo **no es necesario** - se puede enviar a FEPY sin pagos registrados.
 
 ---
 
@@ -200,7 +195,7 @@ Este campo permite validar facturas **de Contado** sin pagos registrados, pero *
 
 ---
 
-### B2F (tipoOperacion = 4)
+### Consumidor Final Extranjero (tipoOperacion = 4)
 
 | Validación | Descripción |
 |-----------|-------------|
@@ -209,6 +204,11 @@ Este campo permite validar facturas **de Contado** sin pagos registrados, pero *
 | Customer sifen_tipo_documento | "3" (Pasaporte) o "4" (Otro) |
 | Customer sifen_tipo_impuesto | 3 o 4 (NO 1, 2, o 5) |
 | Address | Departamento/Distrito/Ciudad = null |
+
+> **Nota:** Actualmente el código asigna `tipoOperacion = 4` para clientes extranjeros.
+> Según el manual SIFEN v150, el código `4` corresponde a **Fundaciones (B2F)**.
+> El mapeo correcto sería `tipoOperacion = 2 (B2C)` para consumidores finales extranjeros,
+> pero esto requiere un cambio en el código. Ver `_get_tipo_operacion()` en `api_client.py`.
 
 ---
 
@@ -246,7 +246,7 @@ Por favor, seleccione el tipo de impuesto en el campo 'SIFEN Tipo Impuesto' en e
 Opciones:
 1 = IVA (cliente local contribuyente)
 2 = ISC (productos con impuesto selectivo)
-3 = Renta (cliente extranjero B2F con RUC)
+3 = Renta (cliente extranjero con RUC)
 4 = Ninguno (cliente extranjero sin RUC, consumidor final)
 5 = IVA - Renta (mixto)
 ```
@@ -256,40 +256,60 @@ Opciones:
 ## Flujo de Validación
 
 ```
-Sales Invoice.validate()
-    ↓
-asignar_numero_control()
-    ↓ (genera número de control si no existe)
-validar_campos_sifen()
-    ↓
-├── Validar Company
-│   ├── Tax ID
-│   ├── Codigo Establecimiento
-│   ├── Timbrado
-│   ├── Actividades Económicas
-│   └── Responsable SIFEN
-├── Validar Customer
-│   ├── sifen_tipo_documento
-│   ├── sifen_tipo_impuesto
-│   └── tipoOperacion (automático)
-├── Validar Address
-│   ├── Departamento
-│   ├── Distrito
-│   └── Ciudad
-├── Validar Items
-│   ├── Item Tax Template
-│   ├── sifen_tipo_iva
-│   └── tax_rate
-├── Validar Sales Taxes
-│   └── tax_rate > 0%
-├── Validar Payment Schedule
-│   ├── Payment Terms/Advances
-│   └── credit_days (si crédito)
-└── Validar Número de Control
-    └── 9 dígitos
-    ↓
-Si hay errores → frappe.throw()
-Si todo OK → continuar con save/submit
+── Validate ──────────────────────────────────────
+                                                   
+Sales Invoice / Purchase Invoice / Delivery Note   
+       ↓                                           
+asignar_numero_control()                           
+       ↓ (genera número de control si no existe)   
+validar_campos_sifen()                             
+       ↓                                           
+├── Validar Company                                
+│   ├── Tax ID                                     
+│   ├── Codigo Establecimiento                     
+│   ├── Timbrado                                   
+│   ├── Actividades Económicas                     
+│   └── Responsable SIFEN                          
+├── Validar Customer                               
+│   ├── sifen_tipo_documento                       
+│   ├── sifen_tipo_impuesto                        
+│   └── tipoOperacion (según customer_group)       
+├── Validar Address                                
+│   ├── Departamento                               
+│   ├── Distrito                                   
+│   └── Ciudad                                     
+├── Validar Items                                  
+│   ├── Item Tax Template                          
+│   ├── sifen_tipo_iva                             
+│   └── tax_rate                                   
+├── Validar Sales Taxes                            
+│   └── tax_rate > 0%                              
+├── Validar Payment Schedule                       
+│   ├── Payment Terms/Advances                     
+│   └── credit_days (si crédito)                   
+└── Validar Número de Control                      
+    └── 9 dígitos                                  
+       ↓                                           
+Si hay errores → frappe.throw()                    
+Si todo OK → continuar con save/submit             
+
+── Before Submit ──────────────────────────────────
+                                                   
+Sales Invoice / POS Invoice                        
+       ↓                                           
+validar_sifen_tipo_transaccion()                   
+       ↓                                           
+Si sifen_tipo_transaccion vacío → frappe.throw()   
+Si todo OK → continuar con submit                  
+
+── On Update After Submit ─────────────────────────
+                                                   
+Sales Invoice (solo)                               
+       ↓                                           
+validar_sifen_tipo_transaccion()                   
+       ↓                                           
+Si sifen_tipo_transaccion vacío → frappe.throw()   
+Si todo OK → continuar con update                  
 ```
 
 ---

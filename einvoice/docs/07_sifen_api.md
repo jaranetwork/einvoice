@@ -1,6 +1,6 @@
 # API SIFEN - Estructura del Payload
 
-Este documento describe la estructura completa del payload enviado a la API FEPY.
+Este documento describe la estructura completa del payload enviado a la API DTE-PY.
 
 ---
 
@@ -133,6 +133,7 @@ POST {BASE_URL}/api/facturar/crear
 | `observacion` | string | ❌ | Observaciones | `""` |
 | `fecha` | string | ✅ | Fecha y hora | `"2026-03-25T10:30:00"` |
 | `tipoEmision` | int | ✅ | 1=Normal | `1` |
+| `templateFactura` | string | ❌ | Tipo de template: `"normal"` o `"ticket"` | `"normal"` |
 | `tipoTransaccion` | int | ✅ | 1=Mercadería, 2=Servicios | `1` |
 | `tipoImpuesto` | int | ✅ | 1-5 | `1` |
 | `moneda` | string | ✅ | ISO 4217 | `"PYG"` |

@@ -15,9 +15,12 @@ bench clear-cache
 1. Ir a **E-Invoice Setting** en el menú principal
 2. Habilitar la opción **Enabled**
 3. Configurar:
-   - **API Endpoint**: URL de la API FEPY
-   - **API Key**: Clave de autenticación FEPY
-   - **Request Timeout**: Tiempo de espera (default: 30 segundos)
+   - **API Endpoint**: URL de la API DTE-PY
+   - **API Key**: Clave de autenticación DTE-PY
+    - **Request Timeout**: Tiempo de espera (default: 30 segundos)
+    - **Tipo de Emisión**: "1|Normal" (predeterminado)
+      - `1|Normal`: Emisión estándar en línea contra SIFEN
+      - `2|Contingencia`: Emisión offline (SIFEN con inconvenientes o sin internet)
 
 ### 3. Configurar Company
 
@@ -82,24 +85,25 @@ Ver [Configuración del Customer](04_customer_setup.md) para detalles completos.
 3. Si hay errores, se mostrarán en un mensaje
 4. Si todo está correcto, la factura se valida
 
-### Enviar a FEPY
+### Enviar a DTE-PY
 
 1. Con la factura validada, ir al menú **E-Invoice**
 2. Click en **Generar E-Invoice**
 3. El sistema:
    - Extrae datos de la factura
    - Construye payload
-   - Envía a API del sistema FEPY
+   - Envía a API del sistema DTE-PY
    - Guarda respuesta en factura
 4. Se muestra mensaje de éxito o error
 
 ### Descargar XML/KUDE
 
-1. Después de enviar a FEPY, aparecen los botones:
+1. Después de enviar a DTE-PY, aparecen los botones:
    - **Download XML**: Descarga el XML de la factura
    - **Download KUDE**: Descarga el PDF (KUDE)
+   - **Print PDF**: Abrir directamente la ventana para imprimir pdf (KUDE)
 2. Los archivos se guardan en la carpeta de descargas del navegador
-* Antes de descargar espere al menos 15 segundos hasta que el sistema FEPY complete las acciones.
+* Antes de descargar espere al menos 15 segundos hasta que el sistema DTE-PY complete las acciones.
 
 ---
 
@@ -125,16 +129,23 @@ Ver [Configuración del Customer](04_customer_setup.md) para detalles completos.
          │
          ▼
 ┌─────────────────┐
-│ Send to FEPY   │
+│ Send to DTE-PY   │
 │ (API Call)      │
 └────────┬────────┘
          │
          ▼
 ┌─────────────────┐
 │ Descargar XML   │
-│ Descargar KUDE  │
+│ Descargar KUDE  |
+| Print PDF       │
 └─────────────────┘
 ```
+
+---
+
+> ⚠️ **Contingencia**: Use "Tipo de Emisión = 2|Contingencia" en E-Invoice Setting
+> cuando el sistema SIFEN esté con inconvenientes o no haya conexión a internet.
+> Las facturas emitidas en contingencia se sincronizan cuando el servicio se restablece.
 
 ---
 
@@ -151,7 +162,7 @@ Ver [Configuración del Customer](04_customer_setup.md) para detalles completos.
 
 - **Visible solo para**: Administrator
 - **Propósito**: Regenerar y reenviar factura a SIFEN
-- **Uso**: Cuando la factura se eliminó en FEPY o hay errores
+- **Uso**: Cuando la factura se eliminó en DTE-PY o hay errores
 
 ---
 

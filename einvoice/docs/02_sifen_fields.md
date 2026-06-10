@@ -160,12 +160,12 @@ Este documento describe el mapeo de campos entre ERPNext y el payload SIFEN.
 - **Formato**: String (YYYY-MM-DDTHH:MM:SS)
 
 ### data.tipoEmision
-- **ERPNext**: Hardcodeado
+- **ERPNext**: Tipo de Emisión en E-Invoice Setting
 - **SIFEN**: Tipo de emisión
 - **Valor**: `1` (Normal)
 
 ### data.tipoTransaccion
-- **ERPNext**: Determinado automáticamente según items
+- **ERPNext**: `Sales Invoice.sifen_tipo_transaccion` / `POS Invoice.sifen_tipo_transaccion`
 - **SIFEN**: Tipo de transacción
 - **Valores**:
   - `1` = Venta de mercadería
@@ -188,14 +188,19 @@ Este documento describe el mapeo de campos entre ERPNext y el payload SIFEN.
 - **Tipo**: Boolean (true/false)
 
 ### data.cliente.tipoOperacion
-- **ERPNext**: Determinado automáticamente
+- **ERPNext**: `Customer.customer_group` → mapeado según la categoría
 - **SIFEN**: Tipo de operación
+- **Valores SIFEN v150**:
+  - `1` = **B2B** — Venta entre contribuyentes (empresa → empresa)
+  - `2` = **B2C** — Consumidor final (nacional o extranjero sin RUC)
+  - `3` = **B2G** — Gobierno / Entidades públicas
+  - `4` = **B2F** — **Fundaciones y Asociaciones sin fines de lucro**
 - **Determinación**:
   ```
-  Si country ≠ Paraguay → 4 (B2F)
-  Si customer_type = "Company" y group contiene "gubernamental" → 3 (B2G)
-  Si customer_type = "Company" → 1 (B2B)
-  Si customer_type = "Individual" → 2 (B2C)
+  Si customer_group = "Gobierno" o contiene "gubernamental" → 3 (B2G)
+  Si customer_group = "Fundación" o "Asociación" → 4 (B2F)
+  Si customer_group = "Consumidor Final" → 2 (B2C)
+  Caso contrario → 1 (B2B)
   ```
 
 ### data.cliente.ruc
@@ -222,7 +227,7 @@ Este documento describe el mapeo de campos entre ERPNext y el payload SIFEN.
 ### data.cliente.departamento / distrito / ciudad
 - **ERPNext**: `Address.state` / `Address.county` / `Address.city`
 - **SIFEN**: Códigos numéricos
-- **Nota**: Para B2F son `null`
+- **Nota**: Para consumidor final extranjero son `null`
 
 ### data.cliente.pais
 - **ERPNext**: `Address.country`
@@ -307,8 +312,8 @@ Este documento describe el mapeo de campos entre ERPNext y el payload SIFEN.
 - **ERPNext**: Determinado automáticamente
 - **SIFEN**: Tipo de condición
 - **Valores**:
-  - `1` = Contado
-  - `2` = Crédito
+  - `1` = Si no existe términos de pago o se activa POS - Contado
+  - `2` = Si existe términos de pago - Crédito
 
 ### data.condicion.credito.tipo
 - **ERPNext**: Determinado según payment terms
@@ -333,7 +338,7 @@ Este documento describe el mapeo de campos entre ERPNext y el payload SIFEN.
 |--------|-------------|-----|
 | 1 | IVA | Cliente local contribuyente |
 | 2 | ISC | Productos con impuesto selectivo |
-| 3 | Renta | Cliente extranjero B2F con RUC |
+| 3 | Renta | Cliente extranjero con RUC |
 | 4 | Ninguno | Cliente extranjero sin RUC |
 | 5 | IVA-Renta | Mixto |
 
@@ -353,7 +358,7 @@ Este documento describe el mapeo de campos entre ERPNext y el payload SIFEN.
 | 1 | B2B | ✅ Sí |
 | 2 | B2C | ❌ No |
 | 3 | B2G | ✅ Sí |
-| 4 | B2F | ❌ No (extranjero) |
+| 4 | B2F | ❌ No (fundaciones) |
 
 ---
 

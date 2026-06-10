@@ -198,6 +198,11 @@ def build_data_section(doc, company, establecimiento, punto, numero, fecha=None,
         if cambio_valor:
             data["cambio"] = float(cambio_valor)
 
+    # Add templateFactura only for Sales Invoice / POS Invoice
+    if doc.doctype in ("Sales Invoice", "POS Invoice"):
+        is_pos = doc.doctype == "POS Invoice" or doc.get("is_pos")
+        data["templateFactura"] = "ticket" if is_pos else "normal"
+
     return data
 
 
