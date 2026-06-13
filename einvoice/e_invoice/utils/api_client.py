@@ -397,6 +397,7 @@ def _handle_api_success(result, doc, invoice_data):
         "custom_einvoice_generated_date": now_datetime(),
         "custom_sifen_correlativo": data.get("correlativo", "") or "",
         "custom_sifen_estado": data.get("estado", "") or "",
+        "custom_sifen_proceso": data.get("proceso") or "",
     }
     cdc = data.get("cdc")
     if cdc:
@@ -584,6 +585,7 @@ def check_invoice_status_background(invoice_name, factura_id, user, doctype="Sal
 
     max_attempts = 10
     last_estado = ""
+    last_proceso = ""
 
     for attempt in range(max_attempts):
         time.sleep(5)
@@ -598,15 +600,18 @@ def check_invoice_status_background(invoice_name, factura_id, user, doctype="Sal
 
         data = result.get("data", {})
         estado = data.get("estado", "")
+        proceso = data.get("proceso", "") or ""
 
-        if not estado or estado == last_estado:
+        if (not estado and not proceso) or (estado == last_estado and proceso == last_proceso):
             continue
 
         last_estado = estado
+        last_proceso = proceso
 
         update_dict = {
             "custom_sifen_estado": estado,
             "custom_sifen_correlativo": data.get("correlativo", "") or "",
+            "custom_sifen_proceso": data.get("proceso") or "",
         }
         cdc = data.get("cdc")
         if cdc:
@@ -638,6 +643,7 @@ def check_invoice_status_background(invoice_name, factura_id, user, doctype="Sal
             "factura_id": current_factura_id,
             "cdc": data.get("cdc") or "",
             "correlativo": data.get("correlativo") or "",
+            "proceso": data.get("proceso") or "",
             "generated_date": str(generated_date or ""),
         }
 

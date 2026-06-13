@@ -10,6 +10,7 @@ function _apply_einvoice_data(data) {
     if (data.cdc) cur_frm.set_value("custom_sifen_cdc", data.cdc);
     if (data.correlativo) cur_frm.set_value("custom_sifen_correlativo", data.correlativo);
     if (data.factura_id) cur_frm.set_value("custom_sifen_factura_id", data.factura_id);
+    if (data.proceso) cur_frm.set_value("custom_sifen_proceso", data.proceso);
     if (data.generated_date) cur_frm.set_value("custom_einvoice_generated_date", data.generated_date);
     update_einvoice_buttons(cur_frm);
 }
@@ -40,7 +41,7 @@ function update_einvoice_buttons(frm) {
     frm.clear_custom_buttons();
     frm.page.clear_inner_toolbar();
 
-    var show_actions = frm.doc.custom_sifen_factura_id ? true : false;
+    var show_actions = !!(frm.doc.custom_sifen_factura_id && frm.doc.custom_sifen_proceso === "Completado");
 
     if (!show_actions) {
         frm.add_custom_button(__('Generate E-Invoice'), function() {

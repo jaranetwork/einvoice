@@ -550,6 +550,7 @@ def force_refresh_einvoice_status(invoice_name):
         update_dict = {
             "custom_sifen_estado": data.get("estado") or invoice.custom_sifen_estado,
             "custom_sifen_correlativo": data.get("correlativo") or invoice.custom_sifen_correlativo,
+            "custom_sifen_proceso": data.get("proceso") or "",
         }
         cdc = data.get("cdc")
         if cdc:

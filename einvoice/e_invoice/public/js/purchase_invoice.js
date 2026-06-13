@@ -9,6 +9,7 @@ function _apply_einvoice_data(data) {
     if (data.cdc) cur_frm.set_value("custom_sifen_cdc", data.cdc);
     if (data.correlativo) cur_frm.set_value("custom_sifen_correlativo", data.correlativo);
     if (data.factura_id) cur_frm.set_value("custom_sifen_factura_id", data.factura_id);
+    if (data.proceso) cur_frm.set_value("custom_sifen_proceso", data.proceso);
     if (data.generated_date) cur_frm.set_value("custom_einvoice_generated_date", data.generated_date);
     update_einvoice_buttons(cur_frm);
 }
@@ -45,6 +46,7 @@ function update_einvoice_buttons(frm) {
     var estado = frm.doc.custom_sifen_estado || '';
     var is_final = ["Aceptado", "Rechazado", "Error"].includes(estado);
     var has_factura = !!frm.doc.custom_sifen_factura_id;
+    var pdf_listo = frm.doc.custom_sifen_proceso === "Completado";
 
     if (frm.doc.docstatus === 1) {
         if (!has_factura || !is_final) {
@@ -89,7 +91,7 @@ function update_einvoice_buttons(frm) {
             }, __('E-Invoice'));
         }
 
-        if (has_factura) {
+        if (has_factura && pdf_listo) {
             frm.add_custom_button(__('Download XML'), function() { download_einvoice_file(frm, 'xml'); }, __('E-Invoice'));
             frm.add_custom_button(__('Download KUDE'), function() { download_einvoice_file(frm, 'kude'); }, __('E-Invoice'));
             frm.add_custom_button(__('🖨️ Print KUDE'), function() { print_kude_direct(frm); }, __('E-Invoice'));

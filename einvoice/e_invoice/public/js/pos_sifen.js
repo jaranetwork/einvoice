@@ -16,6 +16,8 @@ frappe.provide("einvoice.pos");
 			summary.doc.custom_sifen_correlativo = data.correlativo;
 		if (data.factura_id)
 			summary.doc.custom_sifen_factura_id = data.factura_id;
+		if (data.proceso)
+			summary.doc.custom_sifen_proceso = data.proceso;
 
 		summary.$summary_container
 			.find(".sifen-summary-btns")
@@ -34,6 +36,8 @@ frappe.provide("einvoice.pos");
 			summary.doc.custom_sifen_correlativo = data.correlativo;
 		if (data.factura_id)
 			summary.doc.custom_sifen_factura_id = data.factura_id;
+		if (data.proceso)
+			summary.doc.custom_sifen_proceso = data.proceso;
 
 		summary.$summary_container
 			.find(".sifen-summary-btns")
@@ -106,6 +110,8 @@ frappe.provide("einvoice.pos");
 
 				var estado = doc.custom_sifen_estado || "";
 				var has_factura = !!doc.custom_sifen_factura_id;
+				var pdf_listo =
+					doc.custom_sifen_proceso === "Completado";
 				var is_final = ["Aceptado", "Rechazado", "Error"].includes(
 					estado
 				);
@@ -125,7 +131,7 @@ frappe.provide("einvoice.pos");
 					);
 				}
 
-				if (has_factura) {
+				if (has_factura && pdf_listo) {
 					$sifenRow.append(
 						'<div class="summary-btn btn btn-default print-einvoice-btn">' +
 							"\uD83D\uDDA8\uFE0F " +
@@ -214,6 +220,15 @@ frappe.provide("einvoice.pos");
 								r.message.data.facturaId;
 							if (fid)
 								me.doc.custom_sifen_factura_id = fid;
+							var proc =
+								r.message.data &&
+								r.message.data.proceso;
+							if (proc)
+								me.doc.custom_sifen_proceso = proc;
+							me.$summary_container
+								.find(".sifen-summary-btns")
+								.remove();
+							me._render_sifen_buttons();
 						} else {
 							$btn.text(__("Generate E-Invoice")).prop(
 								"disabled",
@@ -335,6 +350,7 @@ frappe.provide("einvoice.pos");
 								"custom_sifen_cdc",
 								"custom_sifen_correlativo",
 								"custom_sifen_factura_id",
+								"custom_sifen_proceso",
 							])
 							.then(function (res) {
 								var data = res.message;
@@ -350,6 +366,9 @@ frappe.provide("einvoice.pos");
 								if (data.custom_sifen_factura_id)
 									doc.custom_sifen_factura_id =
 										data.custom_sifen_factura_id;
+								if (data.custom_sifen_proceso)
+									doc.custom_sifen_proceso =
+										data.custom_sifen_proceso;
 								me.$summary_container
 									.find(".sifen-summary-btns")
 									.remove();

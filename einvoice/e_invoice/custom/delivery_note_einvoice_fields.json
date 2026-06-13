@@ -63,10 +63,21 @@
     },
     {
       "dt": "Delivery Note",
+      "fieldname": "custom_sifen_proceso",
+      "fieldtype": "Data",
+      "label": "DTE-PY Proceso",
+      "insert_after": "custom_sifen_estado",
+      "module": "E-Invoice",
+      "no_copy": 1,
+      "read_only": 1,
+      "description": "Estado de generación de XML/PDF en DTE-PY (Completado/No completado/Pendiente)"
+    },
+    {
+      "dt": "Delivery Note",
       "fieldname": "custom_sifen_cdc",
       "fieldtype": "Data",
       "label": "SIFEN CDC",
-      "insert_after": "custom_sifen_estado",
+      "insert_after": "custom_sifen_proceso",
       "module": "E-Invoice",
       "no_copy": 1,
       "read_only": 1
