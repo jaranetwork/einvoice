@@ -200,8 +200,11 @@ def build_data_section(doc, company, establecimiento, punto, numero, fecha=None,
 
     # Add templateFactura only for Sales Invoice / POS Invoice
     if doc.doctype in ("Sales Invoice", "POS Invoice"):
-        is_pos = doc.doctype == "POS Invoice" or doc.get("is_pos")
-        data["templateFactura"] = "ticket" if is_pos else "normal"
+        if doc.get("pos_profile"):
+            pp = frappe.get_cached_doc("POS Profile", doc.pos_profile)
+            data["templateFactura"] = "ticket" if pp.get("sifen_template_ticket") else "normal"
+        else:
+            data["templateFactura"] = "normal"
 
     return data
 

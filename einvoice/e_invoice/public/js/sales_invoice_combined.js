@@ -17,10 +17,17 @@ function _apply_sifen_update(data) {
 }
 
 frappe.realtime.on("sifen_status_update", function(data) {
-    frappe.show_alert({
-        message: __("E-Factura {0}: {1}", [data.invoice_name, data.estado]),
-        indicator: data.estado === "Aceptado" ? "green" : "orange"
-    });
+    if (!["aceptado", "rechazado", "error"].includes((data.estado || "").toLowerCase())) {
+        var _alertSig = "supdate_" + data.invoice_name + "|" + data.estado + "|" + data.proceso;
+        if (!window.__sifen_alerts) window.__sifen_alerts = {};
+        if (!window.__sifen_alerts[_alertSig]) {
+            window.__sifen_alerts[_alertSig] = true;
+            frappe.show_alert({
+                message: __("E-Factura {0}: {1}", [data.invoice_name, data.estado]),
+                indicator: "orange"
+            });
+        }
+    }
     clearTimeout(_sifen_update_timeout);
     _sifen_update_timeout = setTimeout(function() {
         _apply_sifen_update(data);
@@ -28,10 +35,22 @@ frappe.realtime.on("sifen_status_update", function(data) {
 });
 
 frappe.realtime.on("sifen_status_final", function(data) {
-    frappe.show_alert({
-        message: __("✅ E-Factura {0}: {1}", [data.invoice_name, data.estado]),
-        indicator: data.estado === "Aceptado" ? "green" : "red"
-    });
+    var msg = data.proceso === "Completado"
+        ? __("\u2705 E-Factura {0}: {1} | PDF Completado", [data.invoice_name, data.estado])
+        : data.proceso === "No completado"
+        ? __("\u26A0\uFE0F E-Factura {0}: {1} | PDF No completado", [data.invoice_name, data.estado])
+        : __("\u2705 E-Factura {0}: {1}", [data.invoice_name, data.estado]);
+    var indicator = data.proceso === "Completado" ? "green"
+        : data.proceso === "No completado" ? "red"
+        : (data.estado || "").toLowerCase() === "aceptado" ? "green" : "red";
+
+    var _alertSig = "sfinal_" + data.invoice_name + "|" + data.estado + "|" + data.proceso;
+    if (!window.__sifen_alerts) window.__sifen_alerts = {};
+    if (!window.__sifen_alerts[_alertSig]) {
+        window.__sifen_alerts[_alertSig] = true;
+        frappe.show_alert({ message: msg, indicator: indicator });
+    }
+
     clearTimeout(_sifen_update_timeout);
     _apply_sifen_update(data);
 });
@@ -50,7 +69,7 @@ function update_einvoice_buttons(frm) {
     }
 
     var estado = frm.doc.custom_sifen_estado || '';
-    var is_final = ["Aceptado", "Rechazado", "Error"].includes(estado);
+    var is_final = ["aceptado", "rechazado", "error"].includes(estado.toLowerCase());
     var has_factura = !!frm.doc.custom_sifen_factura_id;
     var pdf_listo = frm.doc.custom_sifen_proceso === "Completado";
 

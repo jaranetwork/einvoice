@@ -44,13 +44,34 @@ frappe.provide("einvoice.pos");
 			.remove();
 		summary._render_sifen_buttons();
 
-		frappe.show_alert({
-			message: __("E-Factura {0}: {1}", [
-				data.invoice_name,
-				data.estado,
-			]),
-			indicator: data.estado === "Aceptado" ? "green" : "red",
-		});
+		var procMsg = data.proceso === "Completado"
+			? " | PDF Completado"
+			: data.proceso === "No completado"
+			? " | PDF No completado"
+			: "";
+		var alertMsg = __("E-Factura {0}: {1}{2}", [
+			data.invoice_name,
+			data.estado,
+			procMsg,
+		]);
+		var alertIndicator =
+			data.proceso === "Completado"
+				? "green"
+				: data.proceso === "No completado"
+				? "red"
+				: (data.estado || "").toLowerCase() === "aceptado"
+				? "green"
+				: "red";
+
+		var _alertSig = "sfinal_" + data.invoice_name + "|" + data.estado + "|" + data.proceso;
+		if (!window.__sifen_alerts) window.__sifen_alerts = {};
+		if (!window.__sifen_alerts[_alertSig]) {
+			window.__sifen_alerts[_alertSig] = true;
+			frappe.show_alert({
+				message: alertMsg,
+				indicator: alertIndicator,
+			});
+		}
 	});
 
 	function _patch() {
@@ -112,8 +133,8 @@ frappe.provide("einvoice.pos");
 				var has_factura = !!doc.custom_sifen_factura_id;
 				var pdf_listo =
 					doc.custom_sifen_proceso === "Completado";
-				var is_final = ["Aceptado", "Rechazado", "Error"].includes(
-					estado
+				var is_final = ["aceptado", "rechazado", "error"].includes(
+					estado.toLowerCase()
 				);
 				var is_processing =
 					estado === "Pendiente" || estado === "Procesando";

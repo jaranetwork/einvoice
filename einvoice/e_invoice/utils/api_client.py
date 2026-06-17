@@ -10,7 +10,7 @@ import json
 import requests
 import base64
 from frappe import _
-from frappe.utils import now_datetime, escape_html
+from frappe.utils import now_datetime, escape_html, flt
 
 # Import validators
 from ..validators import (
@@ -128,6 +128,32 @@ def get_invoice_status(factura_id):
 # MAIN ORCHESTRATOR FUNCTIONS
 # ============================================================================
 
+def _validar_es_factura_credito(doc):
+    """Si la factura tiene condiciones de pago a crédito, advertir al usuario."""
+    errors = []
+
+    if doc.get("is_pos") or doc.get("is_return"):
+        return errors
+    if flt(doc.get("outstanding_amount")) <= 0:
+        return errors
+
+    has_credit = bool(doc.get("payment_terms_template"))
+
+    if has_credit and not doc.get("es_factura_credito"):
+        errors.append(_(
+            "La factura tiene una plantilla de condiciones de pago. "
+            "Marque 'SIFEN Es Factura Crédito' si corresponde."
+        ))
+
+    if doc.get("es_factura_credito") and not has_credit:
+        errors.append(_(
+            "'SIFEN Es Factura Crédito' está marcado pero no tiene "
+            "una Plantilla de Condiciones de Pago asignada."
+        ))
+
+    return errors
+
+
 def validar_campos_sifen(doc, method=None):
     """
     Validate all SIFEN required fields before sending invoice.
@@ -177,6 +203,10 @@ def validar_campos_sifen(doc, method=None):
     items_errors = validate_items_sifen_fields(doc, customer_country)
     errors.extend(items_errors)
 
+    # Validate es_factura_credito consistency
+    credito_errors = _validar_es_factura_credito(doc)
+    errors.extend(credito_errors)
+
     if doctype == "Sales Invoice":
       # Validate Payments (only during on_submit, not during validate/save)
       # Payment validation is now handled by validate_payment_sifen_fields in payment_validator.py
@@ -193,6 +223,17 @@ def validar_campos_sifen(doc, method=None):
     # Raise all errors
     if errors:
         frappe.throw("<br><br>".join(errors), title=_("Missing Required Fields for E-Invoice"))
+
+    # Mostrar tipo de factura al guardar (solo borrador)
+    if doctype == "Sales Invoice" and doc.docstatus == 0:
+        if not doc.get("is_pos") and not doc.get("is_return") and flt(doc.get("outstanding_amount")) > 0:
+            es_credito = doc.get("es_factura_credito") or bool(doc.get("payment_terms_template"))
+            tipo = "Crédito" if es_credito else "Contado"
+            frappe.msgprint(
+                _("Factura {0} - lista para enviar a SIFEN.").format(tipo),
+                title=_("Tipo de Factura"),
+                indicator="blue" if es_credito else "green"
+            )
 
 
 def validar_sifen_tipo_transaccion(doc, method=None):
@@ -649,9 +690,10 @@ def check_invoice_status_background(invoice_name, factura_id, user, doctype="Sal
 
         frappe.publish_realtime("sifen_status_update", event_data, user=user)
 
-        if estado in ("Aceptado", "Rechazado"):
+        if estado.lower() in ("aceptado", "rechazado"):
             frappe.publish_realtime("sifen_status_final", event_data, user=user)
-            break
+            if proceso in ("Completado", "No completado"):
+                break
 
 
 def enqueue_status_check(invoice_name, factura_id, user, doctype="Sales Invoice"):

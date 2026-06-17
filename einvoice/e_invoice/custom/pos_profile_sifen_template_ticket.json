@@ -1,0 +1,18 @@
+{
+  "custom_fields": [
+    {
+      "dt": "POS Profile",
+      "fieldname": "sifen_template_ticket",
+      "fieldtype": "Check",
+      "label": "SIFEN Template Ticket",
+      "insert_after": "codigo_punto_expedicion",
+      "module": "E-Invoice",
+      "default": 1,
+      "description": "Enviar templateFactura=ticket en lugar de normal para facturas POS"
+    }
+  ],
+  "doctype": "Custom Field",
+  "property_setters": [],
+  "custom_perms": [],
+  "links": []
+}
