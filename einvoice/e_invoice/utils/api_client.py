@@ -241,7 +241,9 @@ def validar_sifen_tipo_transaccion(doc, method=None):
 
     Runs only for Sales Invoice and POS Invoice.
     """
-    if doc.doctype == "Sales Invoice" or doc.doctype == "POS Invoice":
+    if doc.doctype in ("Sales Invoice", "POS Invoice"):
+        if doc.doctype == "Sales Invoice" and doc.get("is_return"):
+            return
         if not doc.get("sifen_tipo_transaccion"):
             frappe.throw(_(
                 "SIFEN Tipo de Transacci\u00F3n es requerido.<br><br>"

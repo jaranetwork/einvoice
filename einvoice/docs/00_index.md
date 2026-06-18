@@ -14,10 +14,10 @@ Documentación completa del módulo E-Invoice para integración con SIFEN (Siste
 8. [Autofactura](06b_autofactura.md) - Emisión de facturas de compra (Autofactura)
 9. [API SIFEN](07_sifen_api.md) - Estructura del payload y endpoints
 10. [Nota de Remisión SIFEN](08a_delivery_note.md) - Delivery Note con envío a SIFEN
-11. [POS SIFEN](08b_pos_sifen.md) - Facturación desde POS con template ticket
+11. [POS SIFEN](08b_pos_sifen.md) - Facturación desde POS con plantilla seleccionable
 12. [Flujo de Trabajo](08_workflow.md) - Proceso completo de facturación
-12. [Solución de Problemas](09_troubleshooting.md) - Errores comunes y soluciones
-13. [Referencia Técnica](10_technical_reference.md) - Estructura de archivos y funciones
+13. [Solución de Problemas](09_troubleshooting.md) - Errores comunes y soluciones
+14. [Referencia Técnica](10_technical_reference.md) - Estructura de archivos y funciones
 
 ---
 

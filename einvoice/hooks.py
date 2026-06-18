@@ -7,6 +7,10 @@ app_description = "Electronic Invoice System"
 app_email = "ruben-jara@live.com"
 app_license = "gpl-3.0"
 
+required_apps = {
+    "erpnext": "v16.0.0",
+}
+
 # Includes in <head>
 # ------------------
 

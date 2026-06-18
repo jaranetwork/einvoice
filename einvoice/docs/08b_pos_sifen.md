@@ -2,7 +2,7 @@
 
 ## Introducción
 
-El módulo POS de ERPNext puede generar facturas electrónicas SIFEN. Cuando la configuración del POS está en **Factura de Venta** (Sales Invoice), la factura se envía a SIFEN con `templateFactura = "ticket"` para impresión tipo ticket.
+El módulo POS de ERPNext puede generar facturas electrónicas SIFEN. El valor de `templateFactura` se define por perfil POS (`sifen_template_ticket`), permitiendo elegir entre formato ticket o normal según el punto de venta.
 
 ---
 
@@ -20,7 +20,8 @@ El módulo POS de ERPNext puede generar facturas electrónicas SIFEN. Cuando la 
 1. Ir a **POS Profile** → **Add POS Profile**
 2. Completar datos generales (nombre, warehouse, etc.)
 3. En **SIFEN Código Punto de Expedición**: ingresar 3 dígitos (ej: `001`)
-4. Guardar
+4. En **SIFEN Template Ticket**: marcar para usar plantilla tipo ticket; desmarcar para plantilla normal
+5. Guardar
 
 ---
 
@@ -48,11 +49,12 @@ El módulo POS de ERPNext puede generar facturas electrónicas SIFEN. Cuando la 
 
 ## Comportamiento del template
 
-| Escenario | `templateFactura` |
-|-----------|-------------------|
-| POS Invoice | `"ticket"` |
-| Sales Invoice con `Incluir Pago (POS)` activado (`is_pos = True`) | `"ticket"` |
-| Sales Invoice normal (sin POS) | `"normal"` |
+| Escenario | `templateFactura` | Control |
+|-----------|-------------------|---------|
+| POS Invoice desde POS | Según perfil | `POS Profile > SIFEN Template Ticket` |
+| Sales Invoice con `Incluir Pago (POS)` activado (`is_pos = True`) | Según perfil | `POS Profile > SIFEN Template Ticket` |
+| Sales Invoice normal (sin POS) | `"normal"` | — |
+| Sales Invoice / POS Invoice sin perfil POS asignado | `"normal"` _(default)_ | — |
 
 ---
 

@@ -5,6 +5,7 @@ Main orchestrator for data section construction.
 
 import frappe
 from frappe.utils import now_datetime, formatdate, format_datetime
+from datetime import datetime, time
 from ..helpers import (
     get_descuento_global,
     validar_moneda_sifen,
@@ -244,12 +245,18 @@ def _build_fecha(doc):
     posting_time = getattr(doc, 'posting_time', None)
     
     if posting_date:
-        posting_date_str = str(posting_date)
+        posting_date_str = posting_date.strftime("%Y-%m-%d") if hasattr(posting_date, 'strftime') else str(posting_date)
     else:
-        posting_date_str = str(now_datetime().date())
+        posting_date_str = now_datetime().strftime("%Y-%m-%d")
     
     if posting_time:
-        posting_time_str = str(posting_time).split(".")[0]
+        if isinstance(posting_time, time):
+            posting_time_str = posting_time.strftime("%H:%M:%S")
+        else:
+            try:
+                posting_time_str = datetime.strptime(str(posting_time).split(".")[0], "%H:%M:%S").strftime("%H:%M:%S")
+            except (ValueError, TypeError):
+                posting_time_str = "00:00:00"
         return f"{posting_date_str}T{posting_time_str}"
     else:
         return f"{posting_date_str}T00:00:00"
